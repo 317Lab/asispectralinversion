@@ -70,7 +70,7 @@ def background_brightness_darkpatches(im, lon, lat, plot = True):
     medbright = np.sort(medvec)[1] # we will have at least two patches kept
 
     # Construct a list of all the brightness points from patches below the max brightness cutoff
-    imvec = [] # Vector keeping track of all pixels from patches dimmer than medbright
+    imvec = [] # vector keeping track of all pixels from patches dimmer than medbright
 
     # Find sufficiently dim patches
     for i in rowinds:
@@ -287,7 +287,7 @@ def wavelet_denoise_resample(im, date, lon, lat, newmlonvec, newmlatvec, mapalt_
     regimblur[np.where(np.isnan(regimdenoise))] = np.nan
 
     # Footpoint our new grid
-    lat110,lon110 = A.convert(regmaglat.reshape(-1), np.mod(regmaglon.reshape(-1),360), 'apex', 'geo', height = 110)
+    lat110,lon110 = A.convert(regmaglat.reshape(-1), np.mod(regmaglon.reshape(-1), 360), 'apex', 'geo', height = 110)
     lat110 = lat110.reshape(regmaglat.shape)
     lon110 = lon110.reshape(regmaglon.shape)
 

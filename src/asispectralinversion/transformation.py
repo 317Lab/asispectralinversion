@@ -6,8 +6,7 @@ from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 from preparation import prepare_data
 import os
-from asi_gemini import gemini_coord_transformation
-from asi_gemini import write_asi_gemini
+import h5py
 
 """
 Purpose of this script:
@@ -19,9 +18,17 @@ Purpose of this script:
     - takes interpolated, smoothed energies and conductivities in geomagnetic
       coordinates and transforms them onto a non-regularized geodetic grid
     - regularizes the data onto a regularized geodetic grid
+    
+Function steps:
+    1. Interpolation - in geomagnetic coordinates to fill in NaNs
+    2. Smoothing - smooths over interpolated area
+    3. Writing - writes output data file for geomag data
+    4. Coordinate Transformation - going from apex geomag to geodetic
+    5. Regularize Grid - de-warps the geodetic data onto a regular grid
+    6. Writing - writes output data file for geodetic data
 """
 
-def interp_data(dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH):
+def interp_data_nans(dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH):
     """
     Purpose:
         - finds NaNs from inverted ASI data, masking over them
@@ -64,11 +71,75 @@ def interp_data(dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH)
     # Troubleshooting plots - INTERPOLATED DATA IN REGULARIZED GEOMAGNETIC COORDINATES
     plt.title('Map of Q in Geomagnetic Coordinates (Interpolated)')
     plt.pcolormesh(maglon_dec, maglat_dec, Q_filled, cmap='plasma')
-    plt.colorbar(label = 'W/m$^2$')
+    plt.colorbar(label = 'mW/m$^2$')
+    plt.xlabel('Geomagnetic Longitude')
+    plt.ylabel('Geomagnetic Latitude')
+    Q_fn = 'Q_geomag_interp_{time_str}.png'
+    Q_out = os.path.join(group_outdir, Q_fn)
+    plt.savefig(Q_out)
+    plt.show()
+
+    plt.title('Map of E0 in Geomagnetic Coordinates (Interpolated)')
+    plt.pcolormesh(maglon_dec, maglat_dec, E0_filled, cmap='viridis')
+    plt.colorbar(label = 'eV')
+    plt.xlabel('Geomagnetic Longitude')
+    plt.ylabel('Geomagnetic Latitude')
+    E0_fn = 'E0_geomag_interp_{time_str}.png'
+    E0_out = os.path.join(group_outdir, E0_fn)
+    plt.savefig(E0_out)
+    plt.show()
+
+    return dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled
+
+
+def interp_data_zeros(dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled):
+    """
+    Purpose:
+        - finds NaNs from inverted ASI data, masking over them
+        - interpolates over NaNs to fill in areas where GLOW inversion could not be performed
+    """
+
+    # Determine where data points are non-zero and mask over them
+    print("Finding non-zero data points...")
+    Q_mask = np.nonzero(Q_filled)
+    E0_mask = np.nonzero(E0_filled)
+    SigP_mask = np.nonzero(SigP_filled)
+    SigH_mask = np.nonzero(SigH_filled)
+    
+    # Interpolate over masked area
+    print("Interpolating over NaN'd areas...")
+    Q_interp = NearestNDInterpolator(np.transpose(Q_mask), Q_filled[Q_mask])
+    E0_interp = NearestNDInterpolator(np.transpose(E0_mask), E0_filled[E0_mask])
+    SigP_interp = NearestNDInterpolator(np.transpose(SigP_mask), SigP_filled[SigP_mask])
+    SigH_interp = NearestNDInterpolator(np.transpose(SigH_mask), SigH_filled[SigH_mask])
+    
+    # Make copies of the variables to maintain shapes/sizes
+    Q_filled = Q_filled.copy()
+    E0_filled = E0_filled.copy()
+    SigP_filled = SigP_filled.copy()
+    SigH_filled = SigH_filled.copy()
+    
+    # Determine areas where data points are zero
+    print("Filling in zero data points with interpolated values...")
+    Q_unmask = np.where(Q_filled == 0)
+    E0_unmask = np.where(E0_filled == 0)
+    SigP_unmask = np.where(SigP_filled == 0)
+    SigH_unmask = np.where(SigH_filled == 0)
+    
+    # Apply interpolation to fill in the NaNs
+    Q_filled[Q_unmask] = Q_interp(np.transpose(Q_unmask))
+    E0_filled[E0_unmask] = E0_interp(np.transpose(E0_unmask))
+    SigP_filled[SigP_unmask] = SigP_interp(np.transpose(SigP_unmask))
+    SigH_filled[SigH_unmask] = SigH_interp(np.transpose(SigH_unmask))
+    
+    # Troubleshooting plots - INTERPOLATED DATA IN REGULARIZED GEOMAGNETIC COORDINATES
+    plt.title('Map of Q in Geomagnetic Coordinates (Interpolated)')
+    plt.pcolormesh(maglon_dec, maglat_dec, Q_filled, cmap='plasma')
+    plt.colorbar(label = 'mW/m$^2$')
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     Q_fn = 'Q_geomag_interp.png'
-    Q_out = os.path.join(outdir, Q_fn)
+    Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
     plt.show()
 
@@ -78,34 +149,14 @@ def interp_data(dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH)
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     E0_fn = 'E0_geomag_interp.png'
-    E0_out = os.path.join(outdir, E0_fn)
+    E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
     plt.show()
 
-    plt.title('Map of SigP in Geomagnetic Coordinates (Interpolated)')
-    plt.pcolormesh(maglon_dec, maglat_dec, SigP_filled, cmap='magma')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    SigP_fn = 'SigP_geomag_interp.png'
-    SigP_out = os.path.join(outdir, SigP_fn)
-    plt.savefig(SigP_out)
-    plt.show()
-
-    plt.title('Map of SigH in Geomagnetic Coordinates (Interpolated)')
-    plt.pcolormesh(maglon_dec, maglat_dec, SigH_filled, cmap='cividis')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    SigH_fn = 'SigH_geomag_interp.png'
-    SigH_out = os.path.join(outdir, SigH_fn)
-    plt.savefig(SigH_out)
-    plt.show()
-
-    return dtdate, outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled
+    return dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled
 
 
-def smooth_data(dtdate, outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled):
+def smooth_data(dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled):
     """
     Purpose:
         - smoothes over interpolated areas to handle sharp gradients brought on by interpolation
@@ -125,11 +176,11 @@ def smooth_data(dtdate, outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, Sig
     # Troubleshooting plots - INTERPOLATED AND SMOOTHED DATA IN REGULARIZED GEOMAGNETIC COORDINATES
     plt.title('Map of Q in Geomagnetic Coordinates (Smoothed)')
     plt.pcolormesh(maglon_dec, maglat_dec, Q_smooth, cmap='plasma')
-    plt.colorbar(label = 'W/m$^2$')
+    plt.colorbar(label = 'mW/m$^2$')
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     Q_fn = 'Q_geomag_smooth.png'
-    Q_out = os.path.join(outdir, Q_fn)
+    Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
     plt.show()
 
@@ -139,34 +190,31 @@ def smooth_data(dtdate, outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, Sig
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     E0_fn = 'E0_geomag_smooth.png'
-    E0_out = os.path.join(outdir, E0_fn)
+    E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
     plt.show()
 
-    plt.title('Map of SigP in Geomagnetic Coordinates (Smoothed)')
-    plt.pcolormesh(maglon_dec, maglat_dec, SigP_smooth, cmap='magma')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    SigP_fn = 'SigP_geomag_smooth.png'
-    SigP_out = os.path.join(outdir, SigP_fn)
-    plt.savefig(SigP_out)
-    plt.show()
-
-    plt.title('Map of SigH in Geomagnetic Coordinates (Smoothed)')
-    plt.pcolormesh(maglon_dec, maglat_dec, SigH_smooth, cmap='cividis')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    SigH_fn = 'SigH_geomag_interp.png'
-    SigH_out = os.path.join(outdir, SigH_fn)
-    plt.savefig(SigH_out)
-    plt.show()
-
-    return dtdate, outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth
+    return dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth
 
 
-def transform_trim_data(dtdate, outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth):
+def write_geomag(dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth):
+    
+    print("Writing/saving file for Q, E0, SigP, and SigH in geomagnetic coordinates...")
+      
+    out_fn = "magnetic_Q_E0.h5"
+    
+    with h5py.File(group_outdir + out_fn, "w") as hdf:
+        hdf.create_dataset("Decimated Magnetic Longitude", data=maglon_dec)
+        hdf.create_dataset("Decimated Magnetic Latitude", data=maglat_dec)
+        hdf.create_dataset("Q", data=Q_smooth)
+        hdf.create_dataset("E0", data=E0_smooth)
+        hdf.create_dataset("SigP", data=SigP_smooth)
+        hdf.create_dataset("SigH", data=SigH_smooth)
+    
+    return dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth
+
+
+def transform_data(dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth):
     """
     Purpose:
         - converts interpolated, inverted ASI data from geomagnetic (apex) to geodetic coordinates
@@ -183,28 +231,14 @@ def transform_trim_data(dtdate, outdir, maglon_dec, maglat_dec, Q_smooth, E0_smo
     # Perform geomagnetic to geodetic coordinate conversion for whole data set
     geo_lat_grid, geo_lon_grid = apex_object.convert(maglat_dec, maglon_dec, 'apex', 'geo', height=110)
     
-    # Create mask for area of interest
-    filter_mask = (maglat_dec >= 64.5) & (maglat_dec <= 67.5) & (maglon_dec >= -99.5) & (maglon_dec <= -83.5)
-    
-    # Apply mask to data
-    filtered_maglat_dec = maglat_dec[filter_mask]
-    filtered_maglon_dec = maglon_dec[filter_mask]
-    filtered_Q_smooth = Q_smooth[filter_mask]
-    filtered_E0_smooth = E0_smooth[filter_mask]
-    filtered_SigP_smooth = SigP_smooth[filter_mask]
-    filtered_SigH_smooth = SigH_smooth[filter_mask]
-    
-    # Perform geomagnetic to geodetic coordinate conversion for area of interest
-    filtered_geo_lat_grid, filtered_geo_lon_grid = apex_object.convert(filtered_maglat_dec, filtered_maglon_dec, 'apex', 'geo', height=110)
-    
     # Troubleshooting Plots - WHOLE SPACE NON-REGULARIZED DATA IN GEODETIC COORDINATES
     plt.title('Map of Q in Geodetic Coordinates (Irregular Grid)')
     plt.pcolormesh(geo_lon_grid, geo_lat_grid, Q_smooth, cmap='plasma')
-    plt.colorbar(label = 'W/m$^2$')
+    plt.colorbar(label = 'mW/m$^2$')
     plt.xlabel('Geodetic Longitude')
     plt.ylabel('Geodetic Latitude')
     Q_fn = 'Q_geod_irreg.png'
-    Q_out = os.path.join(outdir, Q_fn)
+    Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
     plt.show()
 
@@ -214,207 +248,165 @@ def transform_trim_data(dtdate, outdir, maglon_dec, maglat_dec, Q_smooth, E0_smo
     plt.xlabel('Geodetic Longitude')
     plt.ylabel('Geodetic Latitude')
     E0_fn = 'E0_geod_irreg.png'
-    E0_out = os.path.join(outdir, E0_fn)
+    E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
     plt.show()
-
-    plt.title('Map of SigP in Geodetic Coordinates (Irregular Grid)')
-    plt.pcolormesh(geo_lon_grid, geo_lat_grid, SigP_smooth, cmap='magma')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    SigP_fn = 'SigP_geod_irreg.png'
-    SigP_out = os.path.join(outdir, SigP_fn)
-    plt.savefig(SigP_out)
-    plt.show()
-
-    plt.title('Map of SigH in Geodetic Coordinates (Irregular Grid)')
-    plt.pcolormesh(geo_lon_grid, geo_lat_grid, SigH_smooth, cmap='cividis')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    SigH_fn = 'SigH_geod_irreg.png'
-    SigH_out = os.path.join(outdir, SigH_fn)
-    plt.savefig(SigH_out)
-    plt.show()
     
-    return dtdate, outdir, maglon_dec, maglat_dec, geo_lon_grid, geo_lat_grid, filtered_maglon_dec, filtered_maglat_dec, filtered_Q_smooth, filtered_E0_smooth, filtered_SigP_smooth, filtered_SigH_smooth, filtered_geo_lat_grid, filtered_geo_lon_grid
+    return dtdate, group_outdir, geo_lon_grid, geo_lat_grid, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth
 
 
-def regularize_data(dtdate, outdir, maglon_dec, maglat_dec, geo_lon_grid, geo_lat_grid, filtered_maglon_dec, filtered_maglat_dec, filtered_Q_smooth, filtered_E0_smooth, filtered_SigP_smooth, filtered_SigH_smooth, filtered_geo_lat_grid, filtered_geo_lon_grid):
+def regularize_data(dtdate, group_outdir, geo_lon_grid, geo_lat_grid, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth):
     """
     Purpose:
           - regularizes inverted, interpolated, smoothed, and transformed ASI data onto a regularized geodetic grid
     """
     
+    print("Putting geodetic data onto a regular geodetic grid...")
+    
     # Create regular grid space
-    lat_min, lat_max = filtered_geo_lat_grid.min(), filtered_geo_lat_grid.max()
-    lon_min, lon_max = filtered_geo_lon_grid.min(), filtered_geo_lon_grid.max()
-    grid_lat, grid_lon = np.mgrid[lat_min:lat_max:100j, lon_min:lon_max:100j]
+    lat_min, lat_max = geo_lat_grid.min(), geo_lat_grid.max()
+    lon_min, lon_max = geo_lon_grid.min(), geo_lon_grid.max()
+    grid_lat, grid_lon = np.mgrid[lat_min:lat_max:256j, lon_min:lon_max:256j]
     
     # Interpolate/Regularize filtered data onto the regular grid
-    Q_smooth_grid = griddata((filtered_geo_lat_grid, filtered_geo_lon_grid), filtered_Q_smooth, (grid_lat, grid_lon), method='cubic')
-    E0_smooth_grid = griddata((filtered_geo_lat_grid, filtered_geo_lon_grid), filtered_E0_smooth, (grid_lat, grid_lon), method='cubic')
-    SigP_smooth_grid = griddata((filtered_geo_lat_grid, filtered_geo_lon_grid), filtered_SigP_smooth, (grid_lat, grid_lon), method='cubic')
-    SigH_smooth_grid = griddata((filtered_geo_lat_grid, filtered_geo_lon_grid), filtered_SigH_smooth, (grid_lat, grid_lon), method='cubic')
+    geo_lat_grid_flat = geo_lat_grid.flatten()
+    geo_lon_grid_flat = geo_lon_grid.flatten()
+    Q_smooth_flat = Q_smooth.flatten()
+    E0_smooth_flat = E0_smooth.flatten()
+    SigP_smooth_flat = SigP_smooth.flatten()
+    SigH_smooth_flat = SigH_smooth.flatten()
     
-    filtered_geo_lat_grid = filtered_geo_lat_grid[~np.isnan(filtered_geo_lat_grid)]
-    filtered_geo_lon_grid = filtered_geo_lon_grid[~np.isnan(filtered_geo_lon_grid)]
+    Q_reg = griddata((geo_lat_grid_flat, geo_lon_grid_flat), Q_smooth_flat, (grid_lat, grid_lon), method='cubic')
+    E0_reg = griddata((geo_lat_grid_flat, geo_lon_grid_flat), E0_smooth_flat, (grid_lat, grid_lon), method='cubic')
+    SigP_reg = griddata((geo_lat_grid_flat, geo_lon_grid_flat), SigP_smooth_flat, (grid_lat, grid_lon), method='cubic')
+    SigH_reg = griddata((geo_lat_grid_flat, geo_lon_grid_flat), SigH_smooth_flat, (grid_lat, grid_lon), method='cubic')
     
-    print("Creating geodetic regular grid...")
-    geodetic_lat_min = 63.5
-    geodetic_lat_max = 68.5
-    geodetic_lon_min = -102.5
-    geodetic_lon_max = -80.5
-
-    geodetic_lat_res = 0.01
-    geodetic_lon_res = 0.01
-
-    geodetic_lat_grid = np.arange(geodetic_lat_min, geodetic_lat_max + geodetic_lat_res, geodetic_lat_res)
-    geodetic_lon_grid = np.arange(geodetic_lon_min, geodetic_lon_max + geodetic_lon_res, geodetic_lon_res)
-
-    lon_grid, lat_grid = np.meshgrid(geodetic_lon_grid, geodetic_lat_grid)
+    geo_lat_grid = geo_lat_grid[~np.isnan(geo_lat_grid)]
+    geo_lon_grid = geo_lon_grid[~np.isnan(geo_lon_grid)]
     
-    # Troubleshooting Plots - INTERPOLATED, SMOOTHED, AND FILTERED
+    # Troubleshooting Plots - INTERPOLATED, SMOOTHED, TRANSFORMED, AND MAPPED ONTO A REGULAR GRID
     plt.title('Map of Q in Geodetic Coordinates')
-    plt.pcolormesh(grid_lon, grid_lat, Q_smooth_grid, cmap='plasma')
-    plt.colorbar(label = 'W/m$^2$')
+    plt.pcolormesh(grid_lon, grid_lat, Q_reg, cmap='plasma')
+    plt.colorbar(label = 'mW/m$^2$')
     plt.xlabel('Geodetic Longitude')
     plt.ylabel('Geodetic Latitude')
     Q_fn = 'Q_geod_reg.png'
-    Q_out = os.path.join(outdir, Q_fn)
+    Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
     plt.show()
     
     plt.title('Map of E0 in Geodetic Coordinates')
-    plt.pcolormesh(grid_lon, grid_lat, E0_smooth_grid, cmap='viridis')
+    plt.pcolormesh(grid_lon, grid_lat, E0_reg, cmap='viridis')
     plt.colorbar(label = 'eV')
     plt.xlabel('Geodetic Longitude')
     plt.ylabel('Geodetic Latitude')
     E0_fn = 'E0_geod_reg.png'
-    E0_out = os.path.join(outdir, E0_fn)
+    E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
     plt.show()
-    
-    plt.title('Map of SigP in Geodetic Coordinates')
-    plt.pcolormesh(grid_lon, grid_lat, SigP_smooth_grid, cmap='magma')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    SigP_fn = 'SigP_geod_reg.png'
-    SigP_out = os.path.join(outdir, SigP_fn)
-    plt.savefig(SigP_out)
-    plt.show()
-    
-    plt.title('Map of SigH in Geodetic Coordinates')
-    plt.pcolormesh(grid_lon, grid_lat, SigH_smooth_grid, cmap='cividis')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    SigH_fn = 'SigH_geod_reg.png'
-    SigH_out = os.path.join(outdir, SigH_fn)
-    plt.savefig(SigH_out)
-    plt.show()
 
-    return dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid
+    return dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg
 
 
-def smooth_reg_data(dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid):
-    """
-    Purpose:
-        - smoothes over the edges of the trimmed grid from the initial given ASI data
-    """
-    # Width of the edge regions to smooth  over
-    sigma = 10
-    edge_width = int(sigma)  # 3 times the sigma value
+def write_geodetic(dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg):
     
-    # Create a mask for the edges
-    edge_mask = np.zeros_like(Q_smooth_grid, dtype=bool)
-    edge_mask[:edge_width, :] = True
-    edge_mask[-edge_width:, :] = True
-    edge_mask[:, :edge_width] = True
-    edge_mask[:, -edge_width:] = True
+   print("Writing/saving file for Q, E0, SigP, and SigH in geodetic coordinates...")
     
-    # Smooth each variable grid over the edges
-    Q_final = Q_smooth_grid.copy()
-    E0_final = E0_smooth_grid.copy()
-    SigP_final = SigP_smooth_grid.copy()
-    SigH_final = SigH_smooth_grid.copy()
+   out_fn = "geodetic_Q_E0.h5"
     
-    Q_final[edge_mask] = scipy.ndimage.gaussian_filter(Q_smooth_grid, sigma)[edge_mask]
-    E0_final[edge_mask] = scipy.ndimage.gaussian_filter(E0_smooth_grid, sigma)[edge_mask]
-    SigP_final[edge_mask] = scipy.ndimage.gaussian_filter(SigP_smooth_grid, sigma)[edge_mask]
-    SigH_final[edge_mask] = scipy.ndimage.gaussian_filter(SigH_smooth_grid, sigma)[edge_mask]
+   with h5py.File(group_outdir + out_fn, "w") as hdf:
+        hdf.create_dataset("Geodetic Longitude", data=grid_lon)
+        hdf.create_dataset("Geodetic Latitude", data=grid_lat)
+        hdf.create_dataset("Q", data=Q_reg)
+        hdf.create_dataset("E0", data=E0_reg)
+        hdf.create_dataset("SigP", data=SigP_reg)
+        hdf.create_dataset("SigH", data=SigH_reg)
     
-    # Troubleshooting Plots - INTERPOLATED, SMOOTHED, FILTERED, AND EDGE-SMOOTHED
-    plt.title('Map of Q in Geodetic Coordinates (Edges Smoothed)')
-    plt.pcolormesh(grid_lon, grid_lat, Q_final, cmap='magma')
-    plt.colorbar(label = 'W/m$^2$')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    plt.title('Smoothed Q on Geodetic Grid')
-    Q_fn = 'Q_final.png'
-    Q_out = os.path.join(outdir, Q_fn)
-    plt.savefig(Q_out)
-    plt.show()
-    
-    plt.title('Map of E0 in Geodetic Coordinates (Edges Smoothed)')
-    plt.pcolormesh(grid_lon, grid_lat, E0_final, cmap='viridis')
-    plt.colorbar(label = 'eV')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    E0_fn = 'E0_final.png'
-    E0_out = os.path.join(outdir, E0_fn)
-    plt.savefig(E0_out)
-    plt.show()
-    
-    plt.title('Map of SigP in Geodetic Coordinates (Edges Smoothed)')
-    plt.pcolormesh(grid_lon, grid_lat, SigP_final, cmap='plasma')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    SigP_fn = 'SigP_final.png'
-    SigP_out = os.path.join(outdir, SigP_fn)
-    plt.savefig(SigP_out)
-    plt.show()
-    
-    plt.title('Map of SigH in Geodetic Coordinates (Edges Smoothed)')
-    plt.pcolormesh(grid_lon, grid_lat, SigH_final, cmap='cividis')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geodetic Longitude')
-    plt.ylabel('Geodetic Latitude')
-    SigH_fn = 'SigH_final.png'
-    SigH_out = os.path.join(outdir, SigH_fn)
-    plt.savefig(SigH_out)
-    plt.show()
-
-
-    return dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_final, E0_final, SigP_final, SigH_final
+   return dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg
 
    
-def feed_data(date, maglatsite, folder, outdir):
+def feed_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
     """
     Purpose:
         - pipeline for feeding processed, inverted ASI data into the series of functions in this script
     """
+    
+    print("")
 
     # Call prepare_data from preparation.py to get the necessary inputs for everything in this script
-    dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH = prepare_data(date, maglatsite, folder, outdir)
+    dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH = prepare_data(date, 
+                                                                                         maglatsite, 
+                                                                                         folder, 
+                                                                                         foi_0428, 
+                                                                                         foi_0558, 
+                                                                                         foi_0630, 
+                                                                                         group_outdir, 
+                                                                                         group_number)
     
     # Call each of the functions in this script that talk to each other internally
-    dtdate, outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled = interp_data(dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH)
-    
-    dtdate, outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth = smooth_data(dtdate, outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled)
-    
-    dtdate, outdir, maglon_dec, maglat_dec, geo_lon_grid, geo_lat_grid, filtered_maglon_dec, filtered_maglat_dec, filtered_Q_smooth, filtered_E0_smooth, filtered_SigP_smooth, filtered_SigH_smooth, filtered_geo_lat_grid, filtered_geo_lon_grid = transform_trim_data(dtdate, outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth)
-    
-    dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid = regularize_data(dtdate, outdir, maglon_dec, maglat_dec, geo_lon_grid, geo_lat_grid, filtered_maglon_dec, filtered_maglat_dec, filtered_Q_smooth, filtered_E0_smooth, filtered_SigP_smooth, filtered_SigH_smooth, filtered_geo_lat_grid, filtered_geo_lon_grid)
-    
-    dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_final, E0_final, SigP_final, SigH_final = smooth_reg_data(dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid)
-    
-    dtdate, outdir, gemini_mag_lon, gemini_mag_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid = gemini_coord_transformation(dtdate, outdir, maglon_dec, maglat_dec, grid_lon, grid_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid)
-    
-    dtdate, outdir, gemini_mag_lon, gemini_mag_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid = write_asi_gemini(dtdate, outdir, gemini_mag_lon, gemini_mag_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid)
+    # interp_data (for NaNs)
+    dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled = interp_data_nans(dtdate, 
+                                                                                                                   group_outdir, 
+                                                                                                                   maglon_dec, 
+                                                                                                                   maglat_dec, 
+                                                                                                                   qout, 
+                                                                                                                   e0out, 
+                                                                                                                   SigP, 
+                                                                                                                   SigH)
+    # interp again (for zeros)
+    dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled = interp_data_zeros(dtdate, 
+                                                                                                                    group_outdir, 
+                                                                                                                    maglon_dec, 
+                                                                                                                    maglat_dec, 
+                                                                                                                    Q_filled, 
+                                                                                                                    E0_filled, 
+                                                                                                                    SigP_filled, 
+                                                                                                                    SigH_filled)
+    # smooth_data
+    dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth = smooth_data(dtdate, 
+                                                                                                              group_outdir, 
+                                                                                                              maglon_dec, 
+                                                                                                              maglat_dec, 
+                                                                                                              Q_filled, 
+                                                                                                              E0_filled, 
+                                                                                                              SigP_filled, 
+                                                                                                              SigH_filled)
+    # write_geomag
+    dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth = write_geomag(dtdate, 
+                                                                                                               group_outdir, 
+                                                                                                               maglon_dec, 
+                                                                                                               maglat_dec, 
+                                                                                                               Q_smooth, 
+                                                                                                               E0_smooth, 
+                                                                                                               SigP_smooth, 
+                                                                                                               SigH_smooth)
+    # transform_data
+    dtdate, group_outdir, geo_lon_grid, geo_lat_grid, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth = transform_data(dtdate, 
+                                                                                                                     group_outdir, 
+                                                                                                                     maglon_dec, 
+                                                                                                                     maglat_dec, 
+                                                                                                                     Q_smooth, 
+                                                                                                                     E0_smooth, 
+                                                                                                                     SigP_smooth, 
+                                                                                                                     SigH_smooth)
+    # regularize_data
+    dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg = regularize_data(dtdate, 
+                                                                                                  group_outdir, 
+                                                                                                  geo_lon_grid, 
+                                                                                                  geo_lat_grid, 
+                                                                                                  Q_smooth, 
+                                                                                                  E0_smooth, 
+                                                                                                  SigP_smooth, 
+                                                                                                  SigH_smooth)
+    # write_geodetic
+    dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg = write_geodetic(dtdate, 
+                                                                                                 group_outdir, 
+                                                                                                 grid_lon, 
+                                                                                                 grid_lat, 
+                                                                                                 Q_reg, 
+                                                                                                 E0_reg, 
+                                                                                                 SigP_reg, 
+                                                                                                 SigH_reg)
     
     print("Returning all necessary data to funnel into Lompe and GEMINI...")
-    return dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH, grid_lon, grid_lat, Q_smooth_grid, E0_smooth_grid, SigP_smooth_grid, SigH_smooth_grid
+    return dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg

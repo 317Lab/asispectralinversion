@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import datetime
+import os
 from apexpy import Apex
 from inversion import load_lookup_tables_directory
 from inversion import calculate_E0_Q_v2
@@ -9,7 +10,7 @@ from preprocessing import wavelet_denoise_resample
 from preprocessing import gaussian_denoise_resample
 from preprocessing import to_rayleighs
 from inversion import calculate_Sig
-import os
+from filing import copy_h5
 
 """
 Purpose of this script:
@@ -18,30 +19,7 @@ Purpose of this script:
     - returns Q, E0, SigmaP, and SigmaH in regularized, geomagnetic coordinates
 """
 
-def copy_h5(vtest):
-    """
-    Purpose: 
-        - copies an HDF5 structure to a python dict recursively
-    """
-    
-    dicttest = {}
-    keyslist = list(vtest.keys())
-    for key in keyslist:
-        if type(vtest[key]) == h5py._hl.dataset.Dataset:
-            if vtest[key].shape[1] == 1:
-                if vtest[key].shape[0] == 1:
-                    dicttest[key] = vtest[key][0][0]
-                else:
-                    dicttest[key] = np.asarray(vtest[key]).flatten()
-            else:
-                dicttest[key] = np.asarray(vtest[key])
-        else:
-            dicttest[key] = copy_h5(vtest[key])
-            
-    return dicttest
-
-
-def prepare_data(date, maglatsite, folder, outdir):
+def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
     """
     Purpose: 
         - prepares Q, E0, SigP, and SigH given ASI data
@@ -56,26 +34,26 @@ def prepare_data(date, maglatsite, folder, outdir):
     background_method = 'patches' # set to 'patches' or 'corners'
 
     v = load_lookup_tables_directory(folder, maglatsite)
-
-    redims = copy_h5(h5py.File(folder + 'reddata.mat'))
-    greenims = copy_h5(h5py.File(folder + 'greendata.mat'))
-    blueims = copy_h5(h5py.File(folder + 'bluedata.mat'))
+    
+    redims = copy_h5(h5py.File(folder + '/' + foi_0630))
+    greenims = copy_h5(h5py.File(folder + '/' + foi_0558))
+    blueims = copy_h5(h5py.File(folder + '/' + foi_0428))
 
     vskymap = copy_h5(h5py.File(folder + 'skymap.mat')['magnetic_footpointing'])
     skymapred = [vskymap['180km']['lat'], vskymap['180km']['lon']]
     skymapgreen = [vskymap['110km']['lat'], vskymap['110km']['lon']]
     skymapblue = [vskymap['107km']['lat'], vskymap['107km']['lon']]
 
-    greenimcoadd = (greenims['frame1'] + greenims['frame2'] + greenims['frame3']) / 3
-    blueimcoadd = (blueims['frame1'] + blueims['frame2'] + blueims['frame3']) / 3
-    redimcoadd = (redims['frame1'] + redims['frame2'] + redims['frame3']) / 3
+    greenimcoadd = (greenims['frame_1'] + greenims['frame_2'] + greenims['frame_3']) / 3
+    blueimcoadd = (blueims['frame_1'] + blueims['frame_2'] + blueims['frame_3']) / 3
+    redimcoadd = (redims['frame_1'] + redims['frame_2'] + redims['frame_3']) / 3
 
     plt.imshow(redimcoadd)
     plt.title('Red Imagery')
     plt.xlabel('E-W')
     plt.ylabel('N-S')
     red_fn = 'red_imagery.png'
-    red_out = os.path.join(outdir, red_fn)
+    red_out = os.path.join(group_outdir, red_fn)
     plt.savefig(red_out)
     plt.show()
     
@@ -84,7 +62,7 @@ def prepare_data(date, maglatsite, folder, outdir):
     plt.xlabel('E-W')
     plt.ylabel('N-S')
     green_fn = 'green_imagery.png'
-    green_out = os.path.join(outdir, green_fn)
+    green_out = os.path.join(group_outdir, green_fn)
     plt.savefig(green_out)
     plt.show()
     
@@ -93,7 +71,7 @@ def prepare_data(date, maglatsite, folder, outdir):
     plt.xlabel('E-W')
     plt.ylabel('N-S')
     blue_fn = 'blue_imagery.png'
-    blue_out = os.path.join(outdir, blue_fn)
+    blue_out = os.path.join(group_outdir, blue_fn)
     plt.savefig(blue_out)
     plt.show()
 
@@ -181,7 +159,7 @@ def prepare_data(date, maglatsite, folder, outdir):
     
     print("Decimating images...")
 
-    dec = 15 # 'dec = 2' returns given resolution
+    dec = 2 # 'dec = 2' returns given resolution
 
     redraydec = redray[::dec, ::dec]
     blueraydec = blueray[::dec, ::dec]
@@ -214,11 +192,11 @@ def prepare_data(date, maglatsite, folder, outdir):
     # Troubleshooting plots
     plt.title('Map of Q in Geomagnetic Coordinates')
     plt.pcolormesh(maglon_dec, maglat_dec, qout, cmap = 'plasma')
-    plt.colorbar(label = 'W/m$^2$')
+    plt.colorbar(label = 'mW/m$^2$')
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     Q_fn = 'Q_geomag.png'
-    Q_out = os.path.join(outdir, Q_fn)
+    Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
     plt.show()
 
@@ -228,7 +206,7 @@ def prepare_data(date, maglatsite, folder, outdir):
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     E0_fn = 'E0_geomag.png'
-    E0_out = os.path.join(outdir, E0_fn)
+    E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
     plt.show()
 
@@ -238,7 +216,7 @@ def prepare_data(date, maglatsite, folder, outdir):
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     SigP_fn = 'SigP_geomag.png'
-    SigP_out = os.path.join(outdir, SigP_fn)
+    SigP_out = os.path.join(group_outdir, SigP_fn)
     plt.savefig(SigP_out)
     plt.show()
     
@@ -248,8 +226,8 @@ def prepare_data(date, maglatsite, folder, outdir):
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
     SigH_fn = 'SigH_geomag.png'
-    SigH_out = os.path.join(outdir, SigH_fn)
+    SigH_out = os.path.join(group_outdir, SigH_fn)
     plt.savefig(SigH_out)
     plt.show()
     
-    return dtdate, outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH
+    return dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH
