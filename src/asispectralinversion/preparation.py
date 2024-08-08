@@ -10,7 +10,6 @@ from preprocessing import wavelet_denoise_resample
 from preprocessing import gaussian_denoise_resample
 from preprocessing import to_rayleighs
 from inversion import calculate_Sig
-from filing import copy_h5
 
 """
 Purpose of this script:
@@ -18,6 +17,29 @@ Purpose of this script:
     - runs preprocessing and inversion functions
     - returns Q, E0, SigmaP, and SigmaH in regularized, geomagnetic coordinates
 """
+
+def copy_h5(vtest):
+    """
+    Purpose: 
+        - copies an HDF5 structure to a python dict recursively
+    """
+    
+    dicttest = {}
+    keyslist = list(vtest.keys())
+    for key in keyslist:
+        if type(vtest[key]) == h5py._hl.dataset.Dataset:
+            if vtest[key].shape[1] == 1:
+                if vtest[key].shape[0] == 1:
+                    dicttest[key] = vtest[key][0][0]
+                else:
+                    dicttest[key] = np.asarray(vtest[key]).flatten()
+            else:
+                dicttest[key] = np.asarray(vtest[key])
+        else:
+            dicttest[key] = copy_h5(vtest[key])
+            
+    return dicttest
+
 
 def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
     """
@@ -55,7 +77,7 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     red_fn = 'red_imagery.png'
     red_out = os.path.join(group_outdir, red_fn)
     plt.savefig(red_out)
-    plt.show()
+    plt.close()
     
     plt.imshow(greenimcoadd)
     plt.title('Green Imagery')
@@ -64,7 +86,7 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     green_fn = 'green_imagery.png'
     green_out = os.path.join(group_outdir, green_fn)
     plt.savefig(green_out)
-    plt.show()
+    plt.close()
     
     plt.imshow(blueimcoadd)
     plt.title('Blue Imagery')
@@ -73,7 +95,7 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     blue_fn = 'blue_imagery.png'
     blue_out = os.path.join(group_outdir, blue_fn)
     plt.savefig(blue_out)
-    plt.show()
+    plt.close()
 
     A = Apex(date = dtdate)
     bmla, bmlo = A.convert(skymapblue[0].reshape(-1), np.mod(skymapblue[1].reshape(-1), 360), 'geo', 'apex', height = 110)
@@ -198,7 +220,7 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     Q_fn = 'Q_geomag.png'
     Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
-    plt.show()
+    plt.close()
 
     plt.title('Map of E0 in Geomagnetic Coordinates')
     plt.pcolormesh(maglon_dec, maglat_dec, e0out, cmap = 'viridis')
@@ -208,7 +230,7 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     E0_fn = 'E0_geomag.png'
     E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
-    plt.show()
+    plt.close()
 
     plt.title('Map of SigP in Geomagnetic Coordinates')
     plt.pcolormesh(maglon_dec, maglat_dec, SigP, cmap = 'magma')
@@ -218,7 +240,7 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     SigP_fn = 'SigP_geomag.png'
     SigP_out = os.path.join(group_outdir, SigP_fn)
     plt.savefig(SigP_out)
-    plt.show()
+    plt.close()
     
     plt.title('Map of SigH in Geomagnetic Coordinates')
     plt.pcolormesh(maglon_dec, maglat_dec, SigH, cmap = 'cividis')
@@ -228,6 +250,6 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     SigH_fn = 'SigH_geomag.png'
     SigH_out = os.path.join(group_outdir, SigH_fn)
     plt.savefig(SigH_out)
-    plt.show()
+    plt.close()
     
     return dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH

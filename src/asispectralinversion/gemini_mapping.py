@@ -57,7 +57,7 @@ plt.ylabel('Geomagnetic Latitude')
 Q_fn = 'Q_geomag_gemini.png' 
 Q_out = os.path.join(outdir, Q_fn)
 plt.savefig(Q_out, dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()
 
 plt.title('Map of E0 in GEMINI Geomagnetic Coordinates')
 plt.pcolormesh(gemini_mag_lon, gemini_mag_lat, E0, cmap='viridis')
@@ -67,7 +67,7 @@ plt.ylabel('Geomagnetic Latitude')
 E0_fn = 'E0_geomag_gemini.png' 
 E0_out = os.path.join(outdir, E0_fn)
 plt.savefig(E0_out, dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()
 
 # Troubleshooting Plots - Visulaziation of what is about to get fed into GEMINI - Regridded
 plt.title('Map of Q in GEMINI Geomagnetic Coordinates - Regridded')
@@ -78,7 +78,7 @@ plt.ylabel('Geomagnetic Latitude')
 Q_fn_rg = 'Q_geomag_gemini_regridded.png' 
 Q_out_rg = os.path.join(outdir, Q_fn_rg)
 plt.savefig(Q_out_rg, dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()
 
 plt.title('Map of E0 in GEMINI Geomagnetic Coordinates - Regridded')
 plt.pcolormesh(MLONi, MLATi, E0_gridding, cmap='viridis')
@@ -88,7 +88,7 @@ plt.ylabel('Geomagnetic Latitude')
 E0_fn_rg = 'E0_geomag_gemini_regridded.png' 
 E0_out_rg = os.path.join(outdir, E0_fn_rg)
 plt.savefig(E0_out_rg, dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()
 
 ilatmin = np.argmin(abs(mlati - 63.5))
 ilatmax = np.argmin(abs(mlati - 68.5))
@@ -110,7 +110,7 @@ plt.ylabel('Geomagnetic Latitude')
 Q_fn_gemini = 'Q_gemini_final.png'
 Q_out_gemini = os.path.join(outdir, Q_fn_gemini)
 plt.savefig(Q_out_gemini, dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()
 
 plt.title('Map of E0 in GEMINI Format')
 plt.pcolormesh(lon_out, lat_out, E0_out.transpose(), cmap='viridis', shading="gouraud")
@@ -120,7 +120,7 @@ plt.ylabel('Geomagnetic Latitude')
 E0_fn_gemini = 'E0_gemini_final.png' 
 E0_out_gemini = os.path.join(outdir, E0_fn_gemini)
 plt.savefig(E0_out_gemini, dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()
 
 print("Writing/saving file for Q, E0, SigP, and SigH in GEMINI's geomagnetic coordinates...")
 

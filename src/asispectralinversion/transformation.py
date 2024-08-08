@@ -74,20 +74,20 @@ def interp_data_nans(dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, 
     plt.colorbar(label = 'mW/m$^2$')
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
-    Q_fn = 'Q_geomag_interp_{time_str}.png'
+    Q_fn = 'Q_geomag_interp.png'
     Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
-    plt.show()
+    plt.close()
 
     plt.title('Map of E0 in Geomagnetic Coordinates (Interpolated)')
     plt.pcolormesh(maglon_dec, maglat_dec, E0_filled, cmap='viridis')
     plt.colorbar(label = 'eV')
     plt.xlabel('Geomagnetic Longitude')
     plt.ylabel('Geomagnetic Latitude')
-    E0_fn = 'E0_geomag_interp_{time_str}.png'
+    E0_fn = 'E0_geomag_interp.png'
     E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
-    plt.show()
+    plt.close()
 
     return dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled
 
@@ -141,7 +141,7 @@ def interp_data_zeros(dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0
     Q_fn = 'Q_geomag_interp.png'
     Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
-    plt.show()
+    plt.close()
 
     plt.title('Map of E0 in Geomagnetic Coordinates (Interpolated)')
     plt.pcolormesh(maglon_dec, maglat_dec, E0_filled, cmap='viridis')
@@ -151,7 +151,7 @@ def interp_data_zeros(dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0
     E0_fn = 'E0_geomag_interp.png'
     E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
-    plt.show()
+    plt.close()
 
     return dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_filled, SigP_filled, SigH_filled
 
@@ -182,7 +182,7 @@ def smooth_data(dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_fille
     Q_fn = 'Q_geomag_smooth.png'
     Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
-    plt.show()
+    plt.close()
 
     plt.title('Map of E0 in Geomagnetic Coordinates (Smoothed)')
     plt.pcolormesh(maglon_dec, maglat_dec, E0_smooth, cmap='viridis')
@@ -192,7 +192,7 @@ def smooth_data(dtdate, group_outdir, maglon_dec, maglat_dec, Q_filled, E0_fille
     E0_fn = 'E0_geomag_smooth.png'
     E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
-    plt.show()
+    plt.close()
 
     return dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth
 
@@ -240,7 +240,7 @@ def transform_data(dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_sm
     Q_fn = 'Q_geod_irreg.png'
     Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
-    plt.show()
+    plt.close()
 
     plt.title('Map of E0 in Geodetic Coordinates (Irregular Grid)')
     plt.pcolormesh(geo_lon_grid, geo_lat_grid, E0_smooth, cmap='viridis')
@@ -250,7 +250,7 @@ def transform_data(dtdate, group_outdir, maglon_dec, maglat_dec, Q_smooth, E0_sm
     E0_fn = 'E0_geod_irreg.png'
     E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
-    plt.show()
+    plt.close()
     
     return dtdate, group_outdir, geo_lon_grid, geo_lat_grid, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth
 
@@ -293,7 +293,7 @@ def regularize_data(dtdate, group_outdir, geo_lon_grid, geo_lat_grid, Q_smooth, 
     Q_fn = 'Q_geod_reg.png'
     Q_out = os.path.join(group_outdir, Q_fn)
     plt.savefig(Q_out)
-    plt.show()
+    plt.close()
     
     plt.title('Map of E0 in Geodetic Coordinates')
     plt.pcolormesh(grid_lon, grid_lat, E0_reg, cmap='viridis')
@@ -303,7 +303,7 @@ def regularize_data(dtdate, group_outdir, geo_lon_grid, geo_lat_grid, Q_smooth, 
     E0_fn = 'E0_geod_reg.png'
     E0_out = os.path.join(group_outdir, E0_fn)
     plt.savefig(E0_out)
-    plt.show()
+    plt.close()
 
     return dtdate, group_outdir, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg
 
