@@ -49,7 +49,7 @@ process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir,
 
 ```
 
-## Data products output using the asispectralinversion library
+## Data products obtained using the asispectralinversion library
 
 Running this process gives a user:
 1. Imagery from ASI
@@ -78,3 +78,8 @@ Running this process gives a user:
 
 
 All maps are given in both geodetic and geomagnetic coordinates.
+
+
+## Using this library to format maps to plug into GEMINI
+
+The gemini_mapping.py script located in asispectralinversion/src/ takes the 2D maps achieved by running asispectralinversion_runscript.py and formats them in a way that the GEMINI model can use to generate model precipitation inputs.
