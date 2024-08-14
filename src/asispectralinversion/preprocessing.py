@@ -104,11 +104,24 @@ def background_brightness_darkpatches(im, lon, lat, plot = True):
     fitfailed = False
     try:
         [peak, cent, sig] = scipy.optimize.curve_fit(gauss, bincenters, hist, p0=[np.amax(plothist) / 5, centerguess, sigguess])[0]
-
-    except:
-        print('Fit failed!')
-        fitfailed = True
-    
+    except Exception as e:
+        print('Fit failed! Failed at {e}')
+        # fitfailed = True
+        
+        # If fit fails, try corners instead for this particular case
+        try: 
+            cent, sig = background_brightness_corners(im, lon, lat)
+        except Exception as e:
+            print('Fit failed for corners method at {e}')
+            
+            # Make a last resort, not-so-great guess
+            try:
+                cent = centerguess
+                sig = sigguess
+            except Exception as e:
+                print('Fit failed for all methods at {e}')        
+                fitfailed = True
+            
     # Range of the data
     hrange = bins[-1] - bins[0]
     

@@ -23,16 +23,16 @@ Purpose of this script:
 
 # Tweakable inputs
 date = '20230216' # date in the form of YYYYMMDD
-starttime = '100000' # time in the format of HHMMSS
-endtime = '105959' # time in the format of HHMMSS
+starttime = '110900' # time in the format of HHMMSS
+endtime = '115959' # time in the format of HHMMSS
 
 maglatsite = 65.8 # site of camera in magnetic latitude
 
 lambdas = ['0428', '0558', '0630'] # wavelengths (nm) of imager filters
 
-folder = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_inputs/asi/images/10ut/' # folder that holds all image files and GLOW outputs for an hour's worth of an event
-base_outdir = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/10UT/' # output directory to store all output figures and h5s
-output_txt = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/10UT/time_ranges.txt' # output for txt file that shows time cadence
+folder = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_inputs/asi/images/11ut/' # folder that holds all image files and GLOW outputs for an hour's worth of an event
+base_outdir = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/11UT/' # output directory to store all output figures and h5s
+output_txt = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/11UT/time_ranges.txt' # output for txt file that shows time cadence
 
 # Main function calls to run through entire process
 date, starttime, endtime, maglatsite, folder, base_outdir, lambdas = file_data(date, starttime, endtime, maglatsite, folder, output_txt, base_outdir)

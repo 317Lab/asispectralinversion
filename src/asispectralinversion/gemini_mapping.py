@@ -5,8 +5,8 @@ import h5py
 import scipy
 import os
 
-asifn = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/6UT/grouped_1geodetic_Q_E0.h5'
-outdir = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/6UT/grouped_1/'
+asifn = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/6UT/grouped_54geodetic_Q_E0.h5'
+outdir = '/Users/clevenger/Projects/data_assimilation2/test_dates/02162023/data_product_outputs/asi_spectral_inversion/6UT/grouped_54/gemini_out/'
 
 with h5py.File(asifn,"r") as h5:
     lon = h5['Geodetic Longitude'][:]
