@@ -96,13 +96,17 @@ You will want to download a fortran compiler -- I personally use gfortran on Mac
 Once all of these are downloaded, you will want to navigate to where you have all of this stored on your machine and:
 
 1. Create the makefile/compile:
+
    ```make -f make_invert_tables.v3```
 
-2. Edit the makefile to match your compiler:
+3. Edit the makefile to match your compiler:
+
    For instance, when I compile, my makefile has the line: "FC = gfortran" (so if you are not using gfortran, fill that in with your compiler)
 
-3. Duplicate one of the in.invert files, rename it for the date you are running, and fill in the appropriate parameters:
+5. Duplicate one of the in.invert files, rename it for the date you are running, and fill in the appropriate parameters:
+
    The following example is for a file for March 19, 2023 (assuming you name the file in.invert.<YYDOY>, in.invert.23078)
+
    - YYDOY: 23078
    - ut time (seconds): 29760
    - glat (degrees): 65.12
@@ -114,12 +118,16 @@ Once all of these are downloaded, you will want to navigate to where you have al
    - Ec (dummy): 1.0
    - Qc (dummy): 1000.0
 
-4. Run the executable program "glow_invert_tables_v3.exe"
+7. Run the executable program "glow_invert_tables_v3.exe"
+
    ```./glow_invert_tables_v3.exe < in.invert.23078```
+
    Depending on your machine, this may take a while. It takes my machine about 20 minutes to generate one table.
 
-5. Check outut/v3/ folder
+9. Check outut/v3/ folder
+
    There should be 11 files that are generated and stored in this folder:
+
    - edens3d_23078_29760.bin
    - eta4278_23078_29760.bin
    - eta5577_23078_29760.bin
@@ -132,8 +140,9 @@ Once all of these are downloaded, you will want to navigate to where you have al
    - I8446_23078_29760.bin
    - ped3d_23078_29760.bin
   
-6. Copy/move GLOW output files
-   If you are keeping the same format for the runscript as above, you will want to store these files in the same spot you plan to store the PNG files, with the variable "folder."
+11. Copy/move GLOW output files
+
+    If you are keeping the same format for the runscript as above, you will want to store these files in the same spot you plan to store the PNG files, with the variable "folder."
 
 
 ## Obtaining the skymap.mat file
