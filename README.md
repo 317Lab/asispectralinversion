@@ -49,6 +49,8 @@ process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir,
 
 ```
 
+Note that the required inputs are a date to pull PNG files for, a GLOW lookup table for the corresponding time(s), and a skymap.mat file. See instructions below for generating GLOW lookup tables and downloading the necessary skymap.mat file to go with each run.
+
 ## Data products obtained using the asispectralinversion library
 
 Running this process gives a user:
@@ -83,3 +85,57 @@ All maps are given in both geodetic and geomagnetic coordinates.
 ## Using this library to format maps to plug into GEMINI
 
 The gemini_mapping.py script located in asispectralinversion/src/ takes the 2D maps achieved by running asispectralinversion_runscript.py and formats them in a way that the GEMINI model can use to generate model precipitation inputs.
+
+
+## Obtaining GLOW Lookup Tables
+
+You can either obtain the base code for generating these lookup tables from https://github.com/NCAR/GLOW and add a few files to the directory where you have this saved, or you can pull all of the files located [here](https://www.dropbox.com/home/Hayley%20Clevenger/GLOW/invert_GLOW) and put them in one location. If you grab everything from NCAR/GLOW, you will need to include the files/folders from the shared location entitiled "output," "glow_invert_tables_v3.exe," "glow_invert_tables_v3.f90," "glow_invert_tables_v3.o," and any of the files starting with "in.invert"
+
+You will want to download a fortran compiler -- I personally use gfortran on MacOS M1, though other options are fine depending on the combination of compilers you have for your specific machine.
+
+Once all of these are downloaded, you will want to navigate to where you have all of this stored on your machine and:
+
+1. Create the makefile/compile:
+   ```make -f make_invert_tables.v3```
+
+2. Edit the makefile to match your compiler:
+   For instance, when I compile, my makefile has the line: "FC = gfortran" (so if you are not using gfortran, fill that in with your compiler)
+
+3. Duplicate one of the in.invert files, rename it for the date you are running, and fill in the appropriate parameters:
+   The following example is for a file for March 19, 2023 (assuming you name the file in.invert.<YYDOY>, in.invert.23078)
+   - YYDOY: 23078
+   - ut time (seconds): 29760
+   - glat (degrees): 65.12
+   - glon (degrees): 212.8
+   - f10.7a (average solar flux): 159.9
+   - f10.7 (solar flux for this particular day): 143.0
+   - f10.7p (solar flux for the previous day): 140.0
+   - Ap: 10.0
+   - Ec (dummy): 1.0
+   - Qc (dummy): 1000.0
+
+4. Run the executable program "glow_invert_tables_v3.exe"
+   ```./glow_invert_tables_v3.exe < in.invert.23078```
+   Depending on your machine, this may take a while. It takes my machine about 20 minutes to generate one table.
+
+5. Check outut/v3/ folder
+   There should be 11 files that are generated and stored in this folder:
+   - edens3d_23078_29760.bin
+   - eta4278_23078_29760.bin
+   - eta5577_23078_29760.bin
+   - eta6300_23078_29760.bin
+   - eta8446_23078_29760.bin
+   - hall3d_23078_29760.bin
+   - I4278_23078_29760.bin
+   - I5577_23078_29760.bin
+   - I6300_23078_29760.bin
+   - I8446_23078_29760.bin
+   - ped3d_23078_29760.bin
+  
+6. Copy/move GLOW output files
+   If you are keeping the same format for the runscript as above, you will want to store these files in the same spot you plan to store the PNG files, with the variable "folder."
+
+
+## Obtaining the skymap.mat file
+
+For all runs specifically with the Poker DASC (which this repo is supporting), the same skymap.mat file will be used for every single run. It can be found [here](https://www.dropbox.com/home/Hayley%20Clevenger/GLOW). If the DASC gets moved at all, the skymap.mat file contents will change and the new version will be needed for the relevant dates.   
