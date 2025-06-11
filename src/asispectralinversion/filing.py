@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 import requests
 from os.path import exists
 import wget
-from transformation import feed_data
+from .transformation import feed_data
 import pandas as pd
 
 """
@@ -86,6 +86,7 @@ def genlinks(date, starttime, endtime):
     
     # Pull and process file list
     soup = BeautifulSoup(requests.get(url).text,'html.parser')
+    print(soup.find_all('a')[5:])
     # First 5 links are not actual events
     rawlinks = soup.find_all('a')[5:]
     # Turning into a numpy array
@@ -102,6 +103,7 @@ def genlinks(date, starttime, endtime):
     newlinks = np.zeros([len(links), 3])
     for i in range(len(links)):
         time,color = links[i].split('.')[0].split('_')[2:] # time and color from filename
+        print(time, color)
         newlinks[i, 0] = seconds_since_midnight(time) # seconds past midnight
         newlinks[i, 1] = color
         newlinks[i, 2] = time

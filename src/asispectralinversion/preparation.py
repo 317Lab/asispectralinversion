@@ -4,12 +4,12 @@ import h5py
 import datetime
 import os
 from apexpy import Apex
-from inversion import load_lookup_tables_directory
-from inversion import calculate_E0_Q_v2
-from preprocessing import wavelet_denoise_resample
-from preprocessing import gaussian_denoise_resample
-from preprocessing import to_rayleighs
-from inversion import calculate_Sig
+from .inversion import load_lookup_tables_directory
+from .inversion import calculate_E0_Q_v2
+from .preprocessing import wavelet_denoise_resample
+from .preprocessing import gaussian_denoise_resample
+from .preprocessing import to_rayleighs
+from .inversion import calculate_Sig
 
 """
 Purpose of this script:

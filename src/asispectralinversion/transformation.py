@@ -4,7 +4,7 @@ from scipy.interpolate import NearestNDInterpolator
 from apexpy import Apex
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
-from preparation import prepare_data
+from .preparation import prepare_data
 import os
 import h5py
 
