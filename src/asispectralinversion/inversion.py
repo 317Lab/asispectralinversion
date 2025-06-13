@@ -12,7 +12,8 @@ def sig_integrator(sigmat, altvec, maglat):
     """
     
     # Cumulative trapezoidal integration
-    Sigmat = scipy.integrate.cumtrapz(sigmat, altvec / 100, axis = 0)[-1]
+    #Sigmat = scipy.integrate.cumtrapz(sigmat, altvec / 100, axis = 0)[-1]
+    Sigmat = scipy.integrate.cumulative_trapezoid(sigmat, altvec / 100, axis = 0)[-1]   # Added by LL 2025-06-12 - cumtrapz was replaced with cumlative_trapezoid in scipy version 1.6
     
     # First order account for magnetic field angle from vertical
     Sigmat /= np.sin(maglat * np.pi / 180)

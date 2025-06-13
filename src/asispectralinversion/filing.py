@@ -404,7 +404,7 @@ def file_data(date, starttime, endtime, maglatsite, folder, output_txt, base_out
     print("Running all data wrangling processes...")
     
     # Main function calls
-    download_imagery(date, starttime, endtime, folder)
+    #download_imagery(date, starttime, endtime, folder)
     folder = sort_pngs(folder)
     folder = png_2_h5(folder)
     folder = group_frames(folder)
