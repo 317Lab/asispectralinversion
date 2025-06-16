@@ -86,7 +86,6 @@ def genlinks(date, starttime, endtime):
     
     # Pull and process file list
     soup = BeautifulSoup(requests.get(url).text,'html.parser')
-    print(soup.find_all('a')[5:])
     # First 5 links are not actual events
     rawlinks = soup.find_all('a')[5:]
     # Turning into a numpy array
@@ -103,7 +102,6 @@ def genlinks(date, starttime, endtime):
     newlinks = np.zeros([len(links), 3])
     for i in range(len(links)):
         time,color = links[i].split('.')[0].split('_')[2:] # time and color from filename
-        print(time, color)
         newlinks[i, 0] = seconds_since_midnight(time) # seconds past midnight
         newlinks[i, 1] = color
         newlinks[i, 2] = time
@@ -178,6 +176,7 @@ def download_imagery(date, starttime, endtime, folder):
         #else:
             #wget.download(links[i], out=date)
         file_path = os.path.join(folder, fnames[i])
+        print(file_path)
         if exists(file_path):
             continue
         else:
@@ -395,7 +394,7 @@ def make_time_spreadsheet(output_txt, base_outdir):
     return df
 
 
-def file_data(date, starttime, endtime, maglatsite, folder, output_txt, base_outdir):
+def file_data(date, starttime, endtime, folder):
     """
     Purpose:
         - runs all filing processes from functions above
@@ -404,94 +403,109 @@ def file_data(date, starttime, endtime, maglatsite, folder, output_txt, base_out
     print("Running all data wrangling processes...")
     
     # Main function calls
-    #download_imagery(date, starttime, endtime, folder)
-    folder = sort_pngs(folder)
-    folder = png_2_h5(folder)
+    download_imagery(date, starttime, endtime, folder)
+    #folder = sort_pngs(folder)
+    #folder = png_2_h5(folder)
     folder = group_frames(folder)
-    make_time_list(folder, output_txt)
-    df = make_time_spreadsheet(output_txt, base_outdir)
+#    make_time_list(folder, output_txt)
+#    df = make_time_spreadsheet(output_txt, base_outdir)
 
-    lambdas = ['0428/', '0558/', '0630/']
-    grouped_files = []
+#    lambdas = ['0428/', '0558/', '0630/']
+    grouped_files = dict()
 
-    for lam in lambdas:
-        lam_folder = os.path.join(folder, lam, 'h5_files')
-        h5_files = glob.glob(os.path.join(lam_folder, '*_*.h5'))
+#    for lam in lambdas:
+#        lam_folder = os.path.join(folder, lam, 'h5_files')
+#        h5_files = glob.glob(os.path.join(lam_folder, '*_*.h5'))
         
-        # Sort h5s by timestamp in filenames
-        def get_timestamp(file):
-            match = re.search(r'_(\d{8}_\d{6})', file)
-            return match.group(1) if match else '' # just an empty string if nothing there
-        
-        h5_list = sorted(h5_files, key=get_timestamp)
+#    # Sort h5s by timestamp in filenames
+#    def get_timestamp(file):
+#        match = re.search(r'_(\d{8}_\d{6})', file)
+#        return match.group(1) if match else '' # just an empty string if nothing there
+
+    for color in ['0428', '0558', '0630']:
+        file_list = sorted(glob.glob(os.path.join(folder, 'PKR_*_'+color+'.png')))
+        #for f in file_list:
+        #    print(f, get_timestamp(f))
+    #    h5_list = sorted(h5_files, key=get_timestamp)
         
         # Group into sets of 3
-        grouped_h5 = [h5_list[i: i + 3] for i in range(0, len(h5_list), 3)]
+        gf = [file_list[i: i+3] for i in range(0, len(file_list), 3)]
+        grouped_files[color] = gf
+        #print(grouped_files)
         
-        for files in grouped_h5:
-            if len(files) > 0:
-                times = []
-                for file in files:
-                    match = re.search(r'_(\d{8}_\d{6})', file)
-                    if match:
-                        time_str = match.group(1)[8:]
-                        times.append(time_str)
-
-                if times:
-                    min_time = min(times)
-                    max_time = max(times)
-                    range_str = f"{min_time}-{max_time}"
-                    grouped_files.append(os.path.join(lam_folder, f"{range_str}.h5"))
-
-    return date, starttime, endtime, maglatsite, folder, base_outdir, lambdas
-
-
-def get_grouped_files(folder, lambdas):
-    """
-    Purpose:
-        - pulls together all of the grouped files
-    """ 
-    
-    grouped_files = {lam: sorted(glob.glob(os.path.join(folder, lam, 'h5_files', 'grouped_h5_files', '*.h5')), key=lambda x: int(re.search(r'_(\d+)', os.path.basename(x)).group(1))) for lam in lambdas}
-    
+#        for files in grouped_h5:
+#            if len(files) > 0:
+#                times = []
+#                for file in files:
+#                    match = re.search(r'_(\d{8}_\d{6})', file)
+#                    if match:
+#                        time_str = match.group(1)[8:]
+#                        times.append(time_str)
+#
+#                if times:
+#                    min_time = min(times)
+#                    max_time = max(times)
+#                    range_str = f"{min_time}-{max_time}"
+#                    grouped_files.append(os.path.join(lam_folder, f"{range_str}.h5"))
+#
+#    return date, starttime, endtime, folder, base_outdir, lambdas
     return grouped_files
 
 
-def process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir, lambdas):
+#def get_grouped_files(folder, lambdas):
+#    """
+#    Purpose:
+#        - pulls together all of the grouped files
+#    """ 
+#    
+#    grouped_files = {lam: sorted(glob.glob(os.path.join(folder, lam, 'h5_files', 'grouped_h5_files', '*.h5')), key=lambda x: int(re.search(r'_(\d+)', os.path.basename(x)).group(1))) for lam in lambdas}
+#    
+#    return grouped_files
+
+
+#def process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir, lambdas):
+def process_grouped_files(date, maglatsite, folder, base_outdir, grouped_files):
     """
     Purpose:
         - pulls info from get_grouped_files and feeds all of the processed h5s into feed_data function
         - this is what allows for the process to be time varying!!
     """ 
-    grouped_files = get_grouped_files(folder, lambdas)
-    
-    # Find the maximum number of groups across all wavelengths
-    max_groups = max(len(files) for files in grouped_files.values())
-    
-    # Iterate over each group index - time varying!!
-    for idx in range(max_groups):
-        foi_files = {}
-        
-        for lam in lambdas:
-            if idx < len(grouped_files[lam]):
-                foi = grouped_files[lam][idx]
-                foi_files[lam] = os.path.join(lam, 'h5_files', 'grouped_h5_files', os.path.basename(foi))
-            else:
-                foi_files[lam] = None  # handle cases where there may be less files for some wavelengths
-                
-        print("FOI Files:", foi_files)
+    #grouped_files = get_grouped_files(folder, lambdas)
 
-        # Ensure all necessary files collected before calling feed_data
-        if all(foi is not None for foi in foi_files.values()):
-            group_number = f"grouped_{idx + 1}"
-            group_outdir = os.path.join(base_outdir, group_number)
-            os.makedirs(group_outdir, exist_ok=True)
-            
-            feed_data(date, maglatsite, folder,
-                      foi_files['0428/'],
-                      foi_files['0558/'],
-                      foi_files['0630/'],
-                      group_outdir, 
-                      group_number)
-        else:
-            continue
+    for redfiles, greenfiles, bluefiles in zip(grouped_files['0630'], grouped_files['0558'], grouped_files['0428']):
+        #print('RED', redfiles)
+        #print('GREEN', greenfiles)
+        #print('BLUE', bluefiles)
+        feed_data(date, maglatsite, folder, bluefiles, greenfiles, redfiles, base_outdir)
+    
+#    # Find the maximum number of groups across all wavelengths
+#    max_groups = max(len(files) for files in grouped_files.values())
+#    
+#    # Iterate over each group index - time varying!!
+#    for idx in range(max_groups):
+#        foi_files = {}
+#        
+#        for lam in lambdas:
+#            if idx < len(grouped_files[lam]):
+#                foi = grouped_files[lam][idx]
+#                foi_files[lam] = os.path.join(lam, 'h5_files', 'grouped_h5_files', os.path.basename(foi))
+#            else:
+#                foi_files[lam] = None  # handle cases where there may be less files for some wavelengths
+#                
+#        print("FOI Files:", foi_files)
+#
+#        # Ensure all necessary files collected before calling feed_data
+#        if all(foi is not None for foi in foi_files.values()):
+#            group_number = f"grouped_{idx + 1}"
+#            group_outdir = os.path.join(base_outdir, group_number)
+#            os.makedirs(group_outdir, exist_ok=True)
+#            
+#            # Main call to process inversion
+#            feed_data(date, maglatsite, folder,
+#                      foi_files['0428/'],
+#                      foi_files['0558/'],
+#                      foi_files['0630/'],
+#                      group_outdir, 
+#                      group_number)
+#        else:
+#            continue

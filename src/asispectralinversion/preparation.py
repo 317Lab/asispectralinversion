@@ -18,85 +18,126 @@ Purpose of this script:
     - returns Q, E0, SigmaP, and SigmaH in regularized, geomagnetic coordinates
 """
 
-def copy_h5(vtest):
-    """
-    Purpose: 
-        - copies an HDF5 structure to a python dict recursively
-    """
-    
-    dicttest = {}
-    keyslist = list(vtest.keys())
-    for key in keyslist:
-        if type(vtest[key]) == h5py._hl.dataset.Dataset:
-            if vtest[key].shape[1] == 1:
-                if vtest[key].shape[0] == 1:
-                    dicttest[key] = vtest[key][0][0]
-                else:
-                    dicttest[key] = np.asarray(vtest[key]).flatten()
-            else:
-                dicttest[key] = np.asarray(vtest[key])
-        else:
-            dicttest[key] = copy_h5(vtest[key])
-            
-    return dicttest
+#def copy_h5(vtest):
+#    """
+#    Purpose: 
+#        - copies an HDF5 structure to a python dict recursively
+#    """
+#    
+#    dicttest = {}
+#    keyslist = list(vtest.keys())
+#    for key in keyslist:
+#        if type(vtest[key]) == h5py._hl.dataset.Dataset:
+#            if vtest[key].shape[1] == 1:
+#                if vtest[key].shape[0] == 1:
+#                    dicttest[key] = vtest[key][0][0]
+#                else:
+#                    dicttest[key] = np.asarray(vtest[key]).flatten()
+#            else:
+#                dicttest[key] = np.asarray(vtest[key])
+#        else:
+#            dicttest[key] = copy_h5(vtest[key])
+#            
+#    return dicttest
 
 
-def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
+#def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
+from PIL import Image
+
+def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=False):
     """
     Purpose: 
         - prepares Q, E0, SigP, and SigH given ASI data
     """
+    # Main inversion??
     
     print("Pulling information from data files and lookup tables...")
 
-    dtdate = datetime.date(int(date[:4]),int(date[4:6]),int(date[6:])) # creating datetime object from given date
+    #dtdate = datetime.date(int(date[:4]),int(date[4:6]),int(date[6:])) # creating datetime object from given date
+    # These should be function parameters
     blur_deg_EW = 0.4 # gaussian blur width in degrees maglon
     blur_deg_NS = 0.04 # gaussian blur width in degrees maglat
     n_shifts = 50 # integer determining shift-invariance of wavelets
     background_method = 'patches' # set to 'patches' or 'corners'
 
-    v = load_lookup_tables_directory(folder, maglatsite)
+    ## Load lookup tables
+    #v = load_lookup_tables_directory(folder, maglatsite)
     
-    redims = copy_h5(h5py.File(folder + '/' + foi_0630))
-    greenims = copy_h5(h5py.File(folder + '/' + foi_0558))
-    blueims = copy_h5(h5py.File(folder + '/' + foi_0428))
+    # load images
+    #redims = copy_h5(h5py.File(folder + '/' + foi_0630))
+    #greenims = copy_h5(h5py.File(folder + '/' + foi_0558))
+    #blueims = copy_h5(h5py.File(folder + '/' + foi_0428))
 
-    vskymap = copy_h5(h5py.File(folder + 'skymap.mat')['magnetic_footpointing'])
-    skymapred = [vskymap['180km']['lat'], vskymap['180km']['lon']]
-    skymapgreen = [vskymap['110km']['lat'], vskymap['110km']['lon']]
-    skymapblue = [vskymap['107km']['lat'], vskymap['107km']['lon']]
+    # Convert PNG to numpy array
+    redims = list()
+    for src_file in redimgs:
+        with Image.open(src_file) as img:
+            redims.append(np.array(img))
 
-    greenimcoadd = (greenims['frame_1'] + greenims['frame_2'] + greenims['frame_3']) / 3
-    blueimcoadd = (blueims['frame_1'] + blueims['frame_2'] + blueims['frame_3']) / 3
-    redimcoadd = (redims['frame_1'] + redims['frame_2'] + redims['frame_3']) / 3
+    greenims = list()
+    for src_file in greenimgs:
+        with Image.open(src_file) as img:
+            greenims.append(np.array(img))
 
-    plt.imshow(redimcoadd)
-    plt.title('Red Imagery')
-    plt.xlabel('E-W')
-    plt.ylabel('N-S')
-    red_fn = 'red_imagery.png'
-    red_out = os.path.join(group_outdir, red_fn)
-    plt.savefig(red_out)
-    plt.close()
-    
-    plt.imshow(greenimcoadd)
-    plt.title('Green Imagery')
-    plt.xlabel('E-W')
-    plt.ylabel('N-S')
-    green_fn = 'green_imagery.png'
-    green_out = os.path.join(group_outdir, green_fn)
-    plt.savefig(green_out)
-    plt.close()
-    
-    plt.imshow(blueimcoadd)
-    plt.title('Blue Imagery')
-    plt.xlabel('E-W')
-    plt.ylabel('N-S')
-    blue_fn = 'blue_imagery.png'
-    blue_out = os.path.join(group_outdir, blue_fn)
-    plt.savefig(blue_out)
-    plt.close()
+    blueims = list()
+    for src_file in blueimgs:
+        with Image.open(src_file) as img:
+            blueims.append(np.array(img))
 
+
+    # load skymap files
+    #vskymap = copy_h5(h5py.File(folder + 'skymap.mat')['magnetic_footpointing'])
+    #skymapred = [vskymap['180km']['lat'], vskymap['180km']['lon']]
+    #skymapgreen = [vskymap['110km']['lat'], vskymap['110km']['lon']]
+    #skymapblue = [vskymap['107km']['lat'], vskymap['107km']['lon']]
+
+    with h5py.File(skymap_file, 'r') as h5:
+        skymapred = [h5['/magnetic_footpointing/180km/lat'][:],
+                     h5['/magnetic_footpointing/180km/lon'][:]]
+        skymapgreen = [h5['/magnetic_footpointing/110km/lat'][:],
+                       h5['/magnetic_footpointing/110km/lon'][:]]
+        skymapblue = [h5['/magnetic_footpointing/107km/lat'][:],
+                      h5['/magnetic_footpointing/107km/lon'][:]]
+
+    ## Prepare data with coadding
+    #greenimcoadd = (greenims['frame_1'] + greenims['frame_2'] + greenims['frame_3']) / 3
+    #blueimcoadd = (blueims['frame_1'] + blueims['frame_2'] + blueims['frame_3']) / 3
+    #redimcoadd = (redims['frame_1'] + redims['frame_2'] + redims['frame_3']) / 3
+
+    redimcoadd = sum(redims)/len(redims)
+    greenimcoadd = sum(greenims)/len(greenims)
+    blueimcoadd = sum(blueims)/len(blueims)
+
+    # Create pngs of coadded images (this should be optional)
+    if plot:
+        plt.imshow(redimcoadd)
+        plt.title('Red Imagery')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        red_fn = 'red_imagery.png'
+        #red_out = os.path.join(group_outdir, red_fn)
+        plt.savefig(red_fn)
+        plt.close()
+        
+        plt.imshow(greenimcoadd)
+        plt.title('Green Imagery')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        green_fn = 'green_imagery.png'
+        #green_out = os.path.join(group_outdir, green_fn)
+        plt.savefig(green_fn)
+        plt.close()
+        
+        plt.imshow(blueimcoadd)
+        plt.title('Blue Imagery')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        blue_fn = 'blue_imagery.png'
+        #blue_out = os.path.join(group_outdir, blue_fn)
+        plt.savefig(blue_fn)
+        plt.close()
+
+    # Map everything to magnetic coordinates?
     A = Apex(date = dtdate)
     bmla, bmlo = A.convert(skymapblue[0].reshape(-1), np.mod(skymapblue[1].reshape(-1), 360), 'geo', 'apex', height = 110)
 
@@ -111,6 +152,11 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
     
     print("Denoising images...")
 
+    # regridding happens somewhere in here
+    # Also image processing/smoothing/denoising/gap-filling
+    # There's a bunch of image copying in here that's probably memory heavy - is it really necessary?
+    # Can we seperate red, green, and blue processing into their own functions? (Low Priority)
+    # Somehow this function generates the maglon and maglat grids - WHY?
     blueimdenoisewavelet, blueimreg, lon110, lat110, maglon, maglat, bluebgbright, bluesig = wavelet_denoise_resample(blueimcoadd, dtdate, skymapblue[1], skymapblue[0], 
                                                                                                                       interplonvec, interplatvec, 110, nshifts = n_shifts, 
                                                                                                                       background_method = background_method, plot = True)
@@ -198,58 +244,64 @@ def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_o
 
     colormat = np.asarray([nred * (redframe - redmin), ngreen * (greenframe - greenmin), nblue * (blueframe - bluemin)]).astype(float)
     colormat /= maxbright
-    
-    print("Calculating Q and E0...")
 
-    qout, e0out, minq, maxq, mine0, maxe0 = calculate_E0_Q_v2(redraydec, greenraydec, blueraydec, v, minE0 = 150, generous = True)
     
-    print("Calculating conductivities given Q and E0...")
-    
-    # Calculate conductivities AFTER calculating Q and E0
-    SigP, SigH = calculate_Sig(qout, e0out, v, generous = True)
-    
+    ## Actual inversion and Conductance calculations happen here
+    ## Probably makes sense to shift these into a new function so this function is limited to image preprocessing and prep
+    #print("Calculating Q and E0...")
+
+    #qout, e0out, minq, maxq, mine0, maxe0 = calculate_E0_Q_v2(redraydec, greenraydec, blueraydec, v, minE0 = 150, generous = True)
+    #
+    #print("Calculating conductivities given Q and E0...")
+    #
+    ## Calculate conductivities AFTER calculating Q and E0
+    #SigP, SigH = calculate_Sig(qout, e0out, v, generous = True)
+    #
     maglon_dec = maglon[::dec, ::dec]
     maglat_dec = maglat[::dec, ::dec]
-    
-    # Troubleshooting plots
-    plt.title('Map of Q in Geomagnetic Coordinates')
-    plt.pcolormesh(maglon_dec, maglat_dec, qout, cmap = 'plasma')
-    plt.colorbar(label = 'mW/m$^2$')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    Q_fn = 'Q_geomag.png'
-    Q_out = os.path.join(group_outdir, Q_fn)
-    plt.savefig(Q_out)
-    plt.close()
 
-    plt.title('Map of E0 in Geomagnetic Coordinates')
-    plt.pcolormesh(maglon_dec, maglat_dec, e0out, cmap = 'viridis')
-    plt.colorbar(label = 'eV')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    E0_fn = 'E0_geomag.png'
-    E0_out = os.path.join(group_outdir, E0_fn)
-    plt.savefig(E0_out)
-    plt.close()
+    return redraydec, greenraydec, blueraydec, maglon_dec, maglat_dec
 
-    plt.title('Map of SigP in Geomagnetic Coordinates')
-    plt.pcolormesh(maglon_dec, maglat_dec, SigP, cmap = 'magma')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    SigP_fn = 'SigP_geomag.png'
-    SigP_out = os.path.join(group_outdir, SigP_fn)
-    plt.savefig(SigP_out)
-    plt.close()
-    
-    plt.title('Map of SigH in Geomagnetic Coordinates')
-    plt.pcolormesh(maglon_dec, maglat_dec, SigH, cmap = 'cividis')
-    plt.colorbar(label = 'mho ($\mho$)')
-    plt.xlabel('Geomagnetic Longitude')
-    plt.ylabel('Geomagnetic Latitude')
-    SigH_fn = 'SigH_geomag.png'
-    SigH_out = os.path.join(group_outdir, SigH_fn)
-    plt.savefig(SigH_out)
-    plt.close()
-    
-    return dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH
+    ## Make plotting optional
+    ## Troubleshooting plots
+    #plt.title('Map of Q in Geomagnetic Coordinates')
+    #plt.pcolormesh(maglon_dec, maglat_dec, qout, cmap = 'plasma')
+    #plt.colorbar(label = 'mW/m$^2$')
+    #plt.xlabel('Geomagnetic Longitude')
+    #plt.ylabel('Geomagnetic Latitude')
+    #Q_fn = 'Q_geomag.png'
+    #Q_out = os.path.join(group_outdir, Q_fn)
+    #plt.savefig(Q_out)
+    #plt.close()
+
+    #plt.title('Map of E0 in Geomagnetic Coordinates')
+    #plt.pcolormesh(maglon_dec, maglat_dec, e0out, cmap = 'viridis')
+    #plt.colorbar(label = 'eV')
+    #plt.xlabel('Geomagnetic Longitude')
+    #plt.ylabel('Geomagnetic Latitude')
+    #E0_fn = 'E0_geomag.png'
+    #E0_out = os.path.join(group_outdir, E0_fn)
+    #plt.savefig(E0_out)
+    #plt.close()
+
+    #plt.title('Map of SigP in Geomagnetic Coordinates')
+    #plt.pcolormesh(maglon_dec, maglat_dec, SigP, cmap = 'magma')
+    #plt.colorbar(label = 'mho ($\mho$)')
+    #plt.xlabel('Geomagnetic Longitude')
+    #plt.ylabel('Geomagnetic Latitude')
+    #SigP_fn = 'SigP_geomag.png'
+    #SigP_out = os.path.join(group_outdir, SigP_fn)
+    #plt.savefig(SigP_out)
+    #plt.close()
+    #
+    #plt.title('Map of SigH in Geomagnetic Coordinates')
+    #plt.pcolormesh(maglon_dec, maglat_dec, SigH, cmap = 'cividis')
+    #plt.colorbar(label = 'mho ($\mho$)')
+    #plt.xlabel('Geomagnetic Longitude')
+    #plt.ylabel('Geomagnetic Latitude')
+    #SigH_fn = 'SigH_geomag.png'
+    #SigH_out = os.path.join(group_outdir, SigH_fn)
+    #plt.savefig(SigH_out)
+    #plt.close()
+    #
+    #return dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH
