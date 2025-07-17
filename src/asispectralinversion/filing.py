@@ -11,6 +11,7 @@ from os.path import exists
 import wget
 from .transformation import feed_data
 import pandas as pd
+import datetime as dt
 
 """
 Purpose of this script:
@@ -417,10 +418,12 @@ def file_data(date, starttime, endtime, folder):
 #        lam_folder = os.path.join(folder, lam, 'h5_files')
 #        h5_files = glob.glob(os.path.join(lam_folder, '*_*.h5'))
         
-#    # Sort h5s by timestamp in filenames
-#    def get_timestamp(file):
-#        match = re.search(r'_(\d{8}_\d{6})', file)
-#        return match.group(1) if match else '' # just an empty string if nothing there
+    # Sort h5s by timestamp in filenames
+    def get_timestamp(file):
+        match = re.search(r'_(\d{8}_\d{6})', file)
+        #return match.group(1) if match else '' # just an empty string if nothing there
+        tstmp = dt.datetime.strptime(match.group(1), "%Y%m%d_%H%M%S")
+        return tstmp
 
     for color in ['0428', '0558', '0630']:
         file_list = sorted(glob.glob(os.path.join(folder, 'PKR_*_'+color+'.png')))
@@ -430,7 +433,27 @@ def file_data(date, starttime, endtime, folder):
         
         # Group into sets of 3
         gf = [file_list[i: i+3] for i in range(0, len(file_list), 3)]
+
+        #for fs in gf:
+        #    print(color, 'NEW GROUP')
+        #    for f in fs:
+        #        print(get_timestamp(f))
+
         grouped_files[color] = gf
+
+    print(len(grouped_files['0428']), len(grouped_files['0558']), len(grouped_files['0630']))
+
+    time_range = list()
+    for i in range(len(grouped_files['0428'])):
+        bluefiles = grouped_files['0428'][i]
+        #for bf in blue_files:
+        #    get_timestamp(bf)
+        #blue_tstmp = [[get_timestamp(f) for f in grouped_files[c][i]] for c in ['0428', '0558', '0630']]
+        blue_tstmp = [get_timestamp(f)  for c in ['0428', '0558', '0630'] for f in grouped_files[c][i]]
+        print(i, blue_tstmp)
+        print(min(blue_tstmp), max(blue_tstmp))
+        time_range.append(min(blue_tstmp))
+
         #print(grouped_files)
         
 #        for files in grouped_h5:
@@ -449,7 +472,7 @@ def file_data(date, starttime, endtime, folder):
 #                    grouped_files.append(os.path.join(lam_folder, f"{range_str}.h5"))
 #
 #    return date, starttime, endtime, folder, base_outdir, lambdas
-    return grouped_files
+    return time_range, grouped_files['0428'], grouped_files['0558'], grouped_files['0630']
 
 
 #def get_grouped_files(folder, lambdas):
@@ -464,7 +487,7 @@ def file_data(date, starttime, endtime, folder):
 
 
 #def process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir, lambdas):
-def process_grouped_files(date, maglatsite, folder, base_outdir, grouped_files):
+def process_grouped_files(tstmps, files0428, files0558, files0630, maglatsite, folder, base_outdir):
     """
     Purpose:
         - pulls info from get_grouped_files and feeds all of the processed h5s into feed_data function
@@ -472,11 +495,13 @@ def process_grouped_files(date, maglatsite, folder, base_outdir, grouped_files):
     """ 
     #grouped_files = get_grouped_files(folder, lambdas)
 
-    for redfiles, greenfiles, bluefiles in zip(grouped_files['0630'], grouped_files['0558'], grouped_files['0428']):
+    #for redfiles, greenfiles, bluefiles in zip(grouped_files['0630'], grouped_files['0558'], grouped_files['0428']):
+    for i in range(len(tstmps)):
         #print('RED', redfiles)
         #print('GREEN', greenfiles)
         #print('BLUE', bluefiles)
-        feed_data(date, maglatsite, folder, bluefiles, greenfiles, redfiles, base_outdir)
+        output_name = os.path.join(base_outdir, f'asi_invert_{tstmps[i]:%Y%m%d_%H%M%S}.h5')
+        feed_data(tstmps[i], maglatsite, folder, files0428[i], files0558[i], files0630[i], output_name)
     
 #    # Find the maximum number of groups across all wavelengths
 #    max_groups = max(len(files) for files in grouped_files.values())

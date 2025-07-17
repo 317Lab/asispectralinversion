@@ -6,10 +6,14 @@ import os
 from apexpy import Apex
 from .inversion import load_lookup_tables_directory
 from .inversion import calculate_E0_Q_v2
-from .preprocessing import wavelet_denoise_resample
-from .preprocessing import gaussian_denoise_resample
+from .preprocessing import wavelet_denoise
+from .preprocessing import gaussian_denoise
 from .preprocessing import to_rayleighs
+from .preprocessing import interpolate_reggrid
+from .preprocessing import background_brightness
+from .preprocessing import common_grid
 from .inversion import calculate_Sig
+from skimage.restoration import denoise_wavelet, cycle_spin
 
 """
 Purpose of this script:
@@ -44,7 +48,7 @@ Purpose of this script:
 #def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
 from PIL import Image
 
-def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=False):
+def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     """
     Purpose: 
         - prepares Q, E0, SigP, and SigH given ASI data
@@ -58,17 +62,12 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=False):
     blur_deg_EW = 0.4 # gaussian blur width in degrees maglon
     blur_deg_NS = 0.04 # gaussian blur width in degrees maglat
     n_shifts = 50 # integer determining shift-invariance of wavelets
-    background_method = 'patches' # set to 'patches' or 'corners'
+    background_method = 'corners' # set to 'patches' or 'corners'
 
     ## Load lookup tables
     #v = load_lookup_tables_directory(folder, maglatsite)
     
-    # load images
-    #redims = copy_h5(h5py.File(folder + '/' + foi_0630))
-    #greenims = copy_h5(h5py.File(folder + '/' + foi_0558))
-    #blueims = copy_h5(h5py.File(folder + '/' + foi_0428))
-
-    # Convert PNG to numpy array
+    # Load PNGs
     redims = list()
     for src_file in redimgs:
         with Image.open(src_file) as img:
@@ -85,12 +84,7 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=False):
             blueims.append(np.array(img))
 
 
-    # load skymap files
-    #vskymap = copy_h5(h5py.File(folder + 'skymap.mat')['magnetic_footpointing'])
-    #skymapred = [vskymap['180km']['lat'], vskymap['180km']['lon']]
-    #skymapgreen = [vskymap['110km']['lat'], vskymap['110km']['lon']]
-    #skymapblue = [vskymap['107km']['lat'], vskymap['107km']['lon']]
-
+    # Load skymap file
     with h5py.File(skymap_file, 'r') as h5:
         skymapred = [h5['/magnetic_footpointing/180km/lat'][:],
                      h5['/magnetic_footpointing/180km/lon'][:]]
@@ -99,84 +93,148 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=False):
         skymapblue = [h5['/magnetic_footpointing/107km/lat'][:],
                       h5['/magnetic_footpointing/107km/lon'][:]]
 
-    ## Prepare data with coadding
-    #greenimcoadd = (greenims['frame_1'] + greenims['frame_2'] + greenims['frame_3']) / 3
-    #blueimcoadd = (blueims['frame_1'] + blueims['frame_2'] + blueims['frame_3']) / 3
-    #redimcoadd = (redims['frame_1'] + redims['frame_2'] + redims['frame_3']) / 3
-
+    # Coadd images
     redimcoadd = sum(redims)/len(redims)
     greenimcoadd = sum(greenims)/len(greenims)
     blueimcoadd = sum(blueims)/len(blueims)
 
-    # Create pngs of coadded images (this should be optional)
+    # Plot coadded images
     if plot:
         plt.imshow(redimcoadd)
         plt.title('Red Imagery')
         plt.xlabel('E-W')
         plt.ylabel('N-S')
-        red_fn = 'red_imagery.png'
-        #red_out = os.path.join(group_outdir, red_fn)
-        plt.savefig(red_fn)
-        plt.close()
+        plt.show()
+        #red_fn = 'red_imagery.png'
+        ##red_out = os.path.join(group_outdir, red_fn)
+        #plt.savefig(red_fn)
+        #plt.close()
         
         plt.imshow(greenimcoadd)
         plt.title('Green Imagery')
         plt.xlabel('E-W')
         plt.ylabel('N-S')
-        green_fn = 'green_imagery.png'
-        #green_out = os.path.join(group_outdir, green_fn)
-        plt.savefig(green_fn)
-        plt.close()
+        plt.show()
+        #green_fn = 'green_imagery.png'
+        ##green_out = os.path.join(group_outdir, green_fn)
+        #plt.savefig(green_fn)
+        #plt.close()
         
         plt.imshow(blueimcoadd)
         plt.title('Blue Imagery')
         plt.xlabel('E-W')
         plt.ylabel('N-S')
-        blue_fn = 'blue_imagery.png'
-        #blue_out = os.path.join(group_outdir, blue_fn)
-        plt.savefig(blue_fn)
-        plt.close()
+        #blue_fn = 'blue_imagery.png'
+        ##blue_out = os.path.join(group_outdir, blue_fn)
+        #plt.savefig(blue_fn)
+        #plt.close()
+
+        plt.show()
+
+
+
+    # Define masks where image not defined
+    bmask = np.isnan(skymapblue[0])
+    gmask = np.isnan(skymapgreen[0])
+    rmask = np.isnan(skymapred[0])
+
+
+
+
+    # Calculate background brightness
+    bluebgbright, sig = background_brightness(blueimcoadd, bmask)
+    greenbgbright, sig = background_brightness(greenimcoadd, gmask)
+    redbgbright, sig = background_brightness(redimcoadd, rmask)
+
+    # Calculate new magnetic grid
 
     # Map everything to magnetic coordinates?
     A = Apex(date = dtdate)
-    bmla, bmlo = A.convert(skymapblue[0].reshape(-1), np.mod(skymapblue[1].reshape(-1), 360), 'geo', 'apex', height = 110)
+    bmlat, bmlon = A.geo2apex(skymapblue[0], skymapblue[1], height=107)
+    gmlat, gmlon = A.geo2apex(skymapgreen[0], skymapgreen[1], height=110)
+    rmlat, rmlon = A.geo2apex(skymapred[0], skymapred[1], height=180)
 
-    minmlat = np.amin(bmla[np.where(~np.isnan(bmla))])
-    maxmlat = np.amax(bmla[np.where(~np.isnan(bmla))])
-    
-    minmlon = np.amin(bmlo[np.where(~np.isnan(bmlo))])
-    maxmlon = np.amax(bmlo[np.where(~np.isnan(bmlo))])
+    print(bmlat.shape, bmlon.shape)
+    print(gmlat.shape, gmlon.shape)
+    print(rmlat.shape, rmlon.shape)
 
-    interplonvec = np.linspace(minmlon, maxmlon, 1024)
-    interplatvec = np.linspace(minmlat, maxmlat, 1024)
-    
-    print("Denoising images...")
+    # Define common, regular grid
+    gridmlat, gridmlon = common_grid(bmlat, bmlon, gmlat, gmlon, rmlat, rmlon)
+    # Footpoint new grid (this is ONLY needed for the internal plotting done in this function)
+    lat0, lon0, _ = A.apex2geo(gridmlat, gridmlon, height=110)
 
-    # regridding happens somewhere in here
-    # Also image processing/smoothing/denoising/gap-filling
-    # There's a bunch of image copying in here that's probably memory heavy - is it really necessary?
-    # Can we seperate red, green, and blue processing into their own functions? (Low Priority)
-    # Somehow this function generates the maglon and maglat grids - WHY?
-    blueimdenoisewavelet, blueimreg, lon110, lat110, maglon, maglat, bluebgbright, bluesig = wavelet_denoise_resample(blueimcoadd, dtdate, skymapblue[1], skymapblue[0], 
-                                                                                                                      interplonvec, interplatvec, 110, nshifts = n_shifts, 
-                                                                                                                      background_method = background_method, plot = True)
 
-    blueimdenoisegauss, _, _, _, _, _, _, _ = gaussian_denoise_resample(blueimcoadd, dtdate, skymapblue[1], skymapblue[0], interplonvec, 
-                                                                        interplatvec, 110, blur_deg_EW, NS_deg = blur_deg_NS, plot = True)
+    # Interpolate images to new magnetic grid
+    blueimreg = interpolate_reggrid(blueimcoadd, bmlon, bmlat, gridmlon, gridmlat)
+    greenimreg = interpolate_reggrid(greenimcoadd, gmlon, gmlat, gridmlon, gridmlat)
+    redimreg = interpolate_reggrid(redimcoadd, rmlon, rmlat, gridmlon, gridmlat)
 
-    noise = np.copy(skymapblue[0]).reshape(-1)
-    noiseadd = (np.random.randn(len(noise[np.where(~np.isnan(noise))])) * bluesig)
-    noise[np.where(~np.isnan(noise))] = noiseadd
-    noise = noise.reshape(skymapblue[0].shape)
 
-    redimdenoise, redimreg, _, _, _, _, redbgbright, redsig = wavelet_denoise_resample(redimcoadd, dtdate, skymapred[1], skymapred[0], 
-                                                                                       interplonvec, interplatvec, 110, nshifts = n_shifts, 
-                                                                                       background_method = background_method, plot = True)
-    greenimdenoise, greenimreg, _, _, _, _, greenbgbright, greensig = wavelet_denoise_resample(greenimcoadd, dtdate, skymapgreen[1], skymapgreen[0], 
-                                                                                               interplonvec, interplatvec, 110, nshifts = n_shifts, 
-                                                                                               background_method = background_method, plot = True)
-    blueimdenoise = np.copy(blueimdenoisewavelet)
+    # Plot Regridded Images
+    if plot:
+        plt.pcolormesh(lon0, lat0, redimreg)
+        plt.title('Red Regrid')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+        
+        plt.pcolormesh(lon0, lat0, greenimreg)
+        plt.title('Green Regrid')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+        
+        plt.pcolormesh(lon0, lat0, blueimreg)
+        plt.title('Blue Regrid')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
 
+
+    # Grid steps for our new footpointed grid - the new grid is very nearly Cartesian in footlat/footlon
+    dlon = np.mean(np.diff(gridmlon, axis=0))
+    dlat = np.mean(np.diff(gridmlat, axis=1))
+
+
+    # Wavelet Denoise
+    blueimdenoise = wavelet_denoise(blueimreg, dlat, dlon, bluebgbright, nshifts=30)
+    greenimdenoise = wavelet_denoise(greenimreg, dlat, dlon, greenbgbright, nshifts=30)
+    redimdenoise = wavelet_denoise(redimreg, dlat, dlon, redbgbright, nshifts=30)
+
+    # Plot Wavelet Denoise Images
+    if plot:
+        plt.pcolormesh(lon0, lat0, redimdenoise)
+        plt.title('Red Wavelet Denoise')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+        
+        plt.pcolormesh(lon0, lat0, greenimdenoise)
+        plt.title('Green Wavelet Denoise')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+        
+        plt.pcolormesh(lon0, lat0, blueimdenoise)
+        plt.title('Blue Wavelet Denoise')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+
+
+    # Gaussian Denoise
+    blueimdenoise = gaussian_denoise(blueimdenoise, dlat, dlon, bluebgbright, EW_deg=blur_deg_EW, NS_deg=blur_deg_NS)
+
+    # Plot Gaussian Denoise Images
+    if plot:
+        plt.pcolormesh(lon0, lat0, blueimdenoise)
+        plt.title('Blue Gaussian Denoise')
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+
+
+    ##########
     ngreen = (1 / np.std(greenimreg[np.where(~np.isnan(greenimreg))])) ** (6.5 / 8)
     nred = (1 / np.std(redimreg[np.where(~np.isnan(redimreg))])) ** (6.5 / 8)
     nblue = (1 / np.std(blueimreg[np.where(~np.isnan(blueimreg))])) ** (6.5 / 8)
@@ -257,8 +315,8 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=False):
     ## Calculate conductivities AFTER calculating Q and E0
     #SigP, SigH = calculate_Sig(qout, e0out, v, generous = True)
     #
-    maglon_dec = maglon[::dec, ::dec]
-    maglat_dec = maglat[::dec, ::dec]
+    maglon_dec = gridmlon[::dec, ::dec]
+    maglat_dec = gridmlat[::dec, ::dec]
 
     return redraydec, greenraydec, blueraydec, maglon_dec, maglat_dec
 
