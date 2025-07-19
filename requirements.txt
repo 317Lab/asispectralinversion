@@ -1,0 +1,12 @@
+numpy
+h5py
+pillow
+beautifulsoup4
+wget
+pandas
+requests
+scipy
+matplotlib
+apexpy
+scikit-image[optional]
+
