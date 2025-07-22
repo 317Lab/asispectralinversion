@@ -4,16 +4,8 @@ import h5py
 import datetime
 import os
 from apexpy import Apex
-from .inversion import load_lookup_tables_directory
-from .inversion import calculate_E0_Q_v2
-from .preprocessing import wavelet_denoise
-from .preprocessing import gaussian_denoise
-from .preprocessing import to_rayleighs
-from .preprocessing import interpolate_reggrid
-from .preprocessing import background_brightness
-from .preprocessing import common_grid
-from .inversion import calculate_Sig
-from skimage.restoration import denoise_wavelet, cycle_spin
+from PIL import Image
+from .preprocessing import common_grid, interpolate_reggrid, background_brightness, wavelet_denoise, gaussian_denoise, to_rayleighs 
 
 """
 Purpose of this script:
@@ -22,31 +14,7 @@ Purpose of this script:
     - returns Q, E0, SigmaP, and SigmaH in regularized, geomagnetic coordinates
 """
 
-#def copy_h5(vtest):
-#    """
-#    Purpose: 
-#        - copies an HDF5 structure to a python dict recursively
-#    """
-#    
-#    dicttest = {}
-#    keyslist = list(vtest.keys())
-#    for key in keyslist:
-#        if type(vtest[key]) == h5py._hl.dataset.Dataset:
-#            if vtest[key].shape[1] == 1:
-#                if vtest[key].shape[0] == 1:
-#                    dicttest[key] = vtest[key][0][0]
-#                else:
-#                    dicttest[key] = np.asarray(vtest[key]).flatten()
-#            else:
-#                dicttest[key] = np.asarray(vtest[key])
-#        else:
-#            dicttest[key] = copy_h5(vtest[key])
-#            
-#    return dicttest
 
-
-#def prepare_data(date, maglatsite, folder, foi_0428, foi_0558, foi_0630, group_outdir, group_number):
-from PIL import Image
 
 def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     """
@@ -256,18 +224,13 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     maxbright = np.amax(colormat)
     colormat /= maxbright
 
-    greenframe = np.copy(greenimdenoise)
-    greenframe[np.where(np.isnan(greenframe))] = greenbgbright
+    if plot:
+        plt.pcolormesh(lon0, lat0, colormat.transpose(1,2,0))
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
 
-    blueframe = np.copy(blueimdenoise)
-    blueframe[np.where(np.isnan(blueframe))] = bluebgbright
-
-    redframe = np.copy(redimdenoise)
-    redframe[np.where(np.isnan(redframe))] = redbgbright
-
-    colormat = np.asarray([nred * (redframe - redmin), ngreen * (greenframe - greenmin), nblue * (blueframe - bluemin)]).astype(float)
-    colormat /= maxbright
-    
+   
     redray, greenray, blueray = to_rayleighs(redimdenoise, greenimdenoise, blueimdenoise, redbgbright, greenbgbright, bluebgbright)
     
     badrange = np.where(np.isnan(redray + blueray + greenray))
@@ -303,63 +266,16 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     colormat = np.asarray([nred * (redframe - redmin), ngreen * (greenframe - greenmin), nblue * (blueframe - bluemin)]).astype(float)
     colormat /= maxbright
 
-    
-    ## Actual inversion and Conductance calculations happen here
-    ## Probably makes sense to shift these into a new function so this function is limited to image preprocessing and prep
-    #print("Calculating Q and E0...")
-
-    #qout, e0out, minq, maxq, mine0, maxe0 = calculate_E0_Q_v2(redraydec, greenraydec, blueraydec, v, minE0 = 150, generous = True)
-    #
-    #print("Calculating conductivities given Q and E0...")
-    #
-    ## Calculate conductivities AFTER calculating Q and E0
-    #SigP, SigH = calculate_Sig(qout, e0out, v, generous = True)
-    #
     maglon_dec = gridmlon[::dec, ::dec]
     maglat_dec = gridmlat[::dec, ::dec]
 
+    if plot:
+        plt.pcolormesh(maglon_dec, maglat_dec, colormat.transpose(1,2,0))
+        plt.xlabel('E-W')
+        plt.ylabel('N-S')
+        plt.show()
+
+
     return redraydec, greenraydec, blueraydec, maglon_dec, maglat_dec
 
-    ## Make plotting optional
-    ## Troubleshooting plots
-    #plt.title('Map of Q in Geomagnetic Coordinates')
-    #plt.pcolormesh(maglon_dec, maglat_dec, qout, cmap = 'plasma')
-    #plt.colorbar(label = 'mW/m$^2$')
-    #plt.xlabel('Geomagnetic Longitude')
-    #plt.ylabel('Geomagnetic Latitude')
-    #Q_fn = 'Q_geomag.png'
-    #Q_out = os.path.join(group_outdir, Q_fn)
-    #plt.savefig(Q_out)
-    #plt.close()
 
-    #plt.title('Map of E0 in Geomagnetic Coordinates')
-    #plt.pcolormesh(maglon_dec, maglat_dec, e0out, cmap = 'viridis')
-    #plt.colorbar(label = 'eV')
-    #plt.xlabel('Geomagnetic Longitude')
-    #plt.ylabel('Geomagnetic Latitude')
-    #E0_fn = 'E0_geomag.png'
-    #E0_out = os.path.join(group_outdir, E0_fn)
-    #plt.savefig(E0_out)
-    #plt.close()
-
-    #plt.title('Map of SigP in Geomagnetic Coordinates')
-    #plt.pcolormesh(maglon_dec, maglat_dec, SigP, cmap = 'magma')
-    #plt.colorbar(label = 'mho ($\mho$)')
-    #plt.xlabel('Geomagnetic Longitude')
-    #plt.ylabel('Geomagnetic Latitude')
-    #SigP_fn = 'SigP_geomag.png'
-    #SigP_out = os.path.join(group_outdir, SigP_fn)
-    #plt.savefig(SigP_out)
-    #plt.close()
-    #
-    #plt.title('Map of SigH in Geomagnetic Coordinates')
-    #plt.pcolormesh(maglon_dec, maglat_dec, SigH, cmap = 'cividis')
-    #plt.colorbar(label = 'mho ($\mho$)')
-    #plt.xlabel('Geomagnetic Longitude')
-    #plt.ylabel('Geomagnetic Latitude')
-    #SigH_fn = 'SigH_geomag.png'
-    #SigH_out = os.path.join(group_outdir, SigH_fn)
-    #plt.savefig(SigH_out)
-    #plt.close()
-    #
-    #return dtdate, group_outdir, maglon_dec, maglat_dec, qout, e0out, SigP, SigH

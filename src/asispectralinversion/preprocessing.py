@@ -3,26 +3,6 @@ from apexpy import Apex
 import scipy.interpolate
 from skimage.restoration import denoise_wavelet, cycle_spin, estimate_sigma
 
-#def reggrid(oldlon, oldlat, newlonvec, newlatvec):
-#    """
-#    Purpose: 
-#        - interpolates an image, given a grid, onto a new regular grid
-#        - takes the image, the old lat/lon grid, and lat/lon vectors for the new mesh grid
-#    """
-#    
-#    # Masks out NaNs
-#    lonmasked = np.ma.masked_invalid(oldlon)
-#    latmasked = np.ma.masked_invalid(oldlat)
-#
-#    # Pulls out unmasked part of old grid
-#    longood = lonmasked[~lonmasked.mask]
-#    latgood = latmasked[~lonmasked.mask]
-#    
-#    # Creates the new mesh grid
-#    newlat, newlon = np.meshgrid(newlatvec, newlonvec)
-#
-#    return newlon, newlat
-
 
 def common_grid(bmlat, bmlon, gmlat, gmlon, rmlat, rmlon):
     """

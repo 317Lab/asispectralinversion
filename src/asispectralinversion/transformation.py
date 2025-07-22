@@ -139,6 +139,8 @@ def feed_data(dtdate, maglatsite, folder, foi_0428, foi_0558, foi_0630, output_f
 
     # Call prepare_data from preparation.py to get the necessary inputs for everything in this script
 
+    print("Prepare Data")
+
     redraydec, greenraydec, blueraydec, maglon_dec, maglat_dec = prepare_data(dtdate, foi_0630, foi_0558, foi_0428, 'test_data_20230314/skymap.mat')
     
     # Load lookup tables
@@ -178,6 +180,6 @@ def feed_data(dtdate, maglatsite, folder, foi_0428, foi_0558, foi_0630, output_f
 
     # write_geodetic
     write_output(dtdate, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg, maglon_dec, maglat_dec, Q_smooth, E0_smooth, SigP_smooth, SigH_smooth, output_file)
-    
-#    print("Returning all necessary data to funnel into Lompe and GEMINI...")
-#    return dtdate, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg
+   
+    print("Returning all necessary data to funnel into Lompe and GEMINI...")
+    return dtdate, grid_lon, grid_lat, Q_reg, E0_reg, SigP_reg, SigH_reg
