@@ -20,3 +20,9 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/almule12/asispectralinversion"
 Issues = "https://github.com/almule12/asispectralinversion/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+asispectralinversion = ["skymap.mat"]
