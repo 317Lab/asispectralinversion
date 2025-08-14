@@ -56,11 +56,12 @@ program glow_invert_tables
   data sw/25*1./
 !------------
   ! variables for the tables
-  integer, parameter :: nec = 1000, nq = 500
+  integer, parameter :: nec = 396, nq = 501
+  integer, parameter :: nec0 = 200, nec1 = 150, nec2 = 46
   integer :: iec, iq, iut
-  real, parameter :: ec0 = 25
-  real, parameter :: q0 = 0.25
-  real, parameter :: dec = 25
+  real, parameter :: ec0 = 2.5, ec1 = 510, ec2 = 2500
+  real, parameter :: q0 = 0.5
+  real, parameter :: dec0 = 2.5, dec1 = 10, dec2 = 500
   real, parameter :: dq = 0.5
   real :: ecvec( nec ), qvec( nq )
   real, allocatable :: B4278(:,:), B5577(:,:), B6300(:,:), B8446(:,:)
@@ -73,15 +74,23 @@ program glow_invert_tables
   ! variables for timing
   real :: clock_rate, outparams(20)
   integer :: t1, t2, clock_max
-  !character(len=35) :: fout
   character(len=1024) :: fout
   ! Make the vectors
-  DO iec = 1, nec, 1
-     ecvec( iec ) = (iec - 1) * dec + ec0
+  DO iec = 1, nec0, 1
+     ecvec( iec ) = (iec - 1) * dec0 + ec0
   ENDDO
 
-  DO iq  = 1,  nq, 1
-     qvec ( iq ) = (iq - 1) * dq + q0
+  DO iec = nec0 + 1 , nec0 + nec1, 1
+     ecvec( iec ) = (iec - nec0) * dec1 + ec1
+  ENDDO
+
+  DO iec = nec0 + nec1 + 1, nec0 + nec1 + nec2, 1
+     ecvec( iec ) = (iec - (nec0 + nec1 + 1) ) * dec2 + ec2
+  ENDDO
+
+  qvec( 1 ) = 0.25
+  DO iq  = 2,  nq, 1
+     qvec ( iq ) = (iq - 2) * dq + q0
   ENDDO
 !
 ! Initialize standard switches:
@@ -149,11 +158,8 @@ program glow_invert_tables
 ! Get input values:
 !
 !    write(6,"('Enter date, UT, lat, lon, F107a, F107, F107p, Ap, Ef, Ec')")
-    !read(5,*,iostat=iostatus) idate,ut,glat,glong,f107a,f107,f107p,ap
+!    read(5,*,iostat=iostatus) idate,ut,glat,glong,f107a,f107,f107p,ap
     read(5,*,iostat=iostatus) idate,ut,glat,glong,f107a,f107,f107p,ap,out_dir
-    !write(*,*) out_dir
-    !write(*,*) len(out_dir)
-    !write( *, "(A,'I4278_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
     if (iostatus /= 0) stop
     iut = INT( ut )
     outparams(1) = FLOAT( idate )
@@ -182,7 +188,7 @@ program glow_invert_tables
   !
   do iec = 1, nec, 1
      IF ( MOD(iec,100) == 0 ) THEN
-        open( unit=41, file='invert_table_stat.txt', status='replace', action='write')
+        open( unit=41, file='invert_table_stat_v3.txt', status='replace', action='write')
         WRITE(41, '(I5.5)') iec
         close(41)
      ENDIF
@@ -242,12 +248,11 @@ program glow_invert_tables
         ped2d ( iq, iec, : ) = pedcond( : )
         edens3d(iq, iec, : ) = ecalc( : )
         !    call emout("data/emout.txt",28)
-
      enddo
   enddo
   
 ! write the brigthness files out.
-  !write( fout, "('data/v2/I4278_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/I4278_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'I4278_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=42, file=trim(fout), access='stream', &
        status='replace', action='write')
@@ -259,7 +264,7 @@ program glow_invert_tables
   write(42) B4278
   CLOSE(42)
 
-  !write( fout, "('data/v2/I5577_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/I5577_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'I5577_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=55, file=trim(fout), access='stream', &
        status='replace', action='write')
@@ -271,7 +276,7 @@ program glow_invert_tables
   write(55) B5577
   CLOSE(55)
 
-  !write( fout, "('data/v2/I6300_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/I6300_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'I6300_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=63, file=trim(fout), access='stream', &
        status='replace', action='write')
@@ -283,7 +288,7 @@ program glow_invert_tables
   write(63) B6300
   CLOSE(63)
 
-  !write( fout, "('data/v2/I8446_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/I8446_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'I8446_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=84, file=trim(fout), access='stream', &
        status='replace', action='write')
@@ -295,7 +300,7 @@ program glow_invert_tables
   write(84) B8446
   CLOSE(84)
 
-  !write( fout, "('data/v2/eta4278_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/eta4278_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'eta4278_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=142, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -309,7 +314,7 @@ program glow_invert_tables
   write(142) (eta4278( : , :, j ), j=1,jmax)
   CLOSE(142)
 
-  !write( fout, "('data/v2/eta5577_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/eta5577_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'eta5577_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=155, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -323,7 +328,7 @@ program glow_invert_tables
   write(155) (eta5577( : , :, j ), j=1,jmax)
   CLOSE(155)  
 
-  !write( fout, "('data/v2/eta6300_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/eta6300_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'eta6300_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=163, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -337,7 +342,7 @@ program glow_invert_tables
   write(163) (eta6300( : , :, j ), j=1,jmax)
   CLOSE(163)
 
-  !write( fout, "('data/v2/eta8446_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/eta8446_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'eta8446_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=184, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -351,7 +356,7 @@ program glow_invert_tables
   write(184) (eta8446( : , :, j ), j=1,jmax)
   CLOSE(184)  
 
-  !write( fout, "('data/v2/hall3d_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/hall3d_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'hall3d_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=85, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -365,7 +370,7 @@ program glow_invert_tables
   write(85) (hall2d( : , :, j ), j=1,jmax)
   CLOSE(85)
   
-  !write( fout, "('data/v2/ped3d_',I5.5,'_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/ped3d_',I5.5,'_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'ped3d_',I5.5,'_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=86, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -379,7 +384,7 @@ program glow_invert_tables
   write(86) (ped2d( : , :, j ), j=1,jmax)
   CLOSE(86)
 
-  !write( fout, "('data/v2/edens3d_',I5.5, '_',I5.5,'.bin')"), idate, iut
+  !write( fout, "('output/v3/edens3d_',I5.5, '_',I5.5,'.bin')"), idate, iut
   write( fout, "(A,'edens3d_',I5.5, '_',I5.5,'.bin')"), trim(out_dir), idate, iut
   OPEN( unit=87, file=trim(fout), access='stream', &
        status = 'replace', action='write')
@@ -396,7 +401,7 @@ program glow_invert_tables
   call system_clock( t2, clock_rate, clock_max)
   
   write(*,*) 'elapsed time = ', (t2 - t1) / clock_rate
-  open( unit=41, file='invert_table_stat_v2.txt', status='replace', action='write')
+  open( unit=41, file='invert_table_stat_v3.txt', status='replace', action='write')
   WRITE(41,* ) 'elapsed time = ', (t2 - t1) / clock_rate
   close(41)
   stop
