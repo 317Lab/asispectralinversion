@@ -37,6 +37,7 @@ program glow_invert_tables
   use cglow,only: photoi,photod,phono,aglw,tei,tpi,tir,ecalc,zxden,zeta,zceta,zlbh
   use cglow,only: cglow_init
   use cglow,only: data_dir
+  !use glow_invert_airglow,only: glow_invert_airglow
 
   implicit none
 
@@ -75,6 +76,9 @@ program glow_invert_tables
   real :: clock_rate, outparams(20)
   integer :: t1, t2, clock_max
   character(len=1024) :: fout
+
+  !call glow_invert_airglow
+
   ! Make the vectors
   DO iec = 1, nec0, 1
      ecvec( iec ) = (iec - 1) * dec0 + ec0

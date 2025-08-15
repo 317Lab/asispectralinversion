@@ -109,7 +109,7 @@ GLOW lookup tables are required to perform the inversion.  These are generated b
 You will need a [fortran compiler](https://fortran-lang.org/compilers/) to build this code.  If you do not already have a fotran compiler on your system, we recommend installing [gfortran](https://fortran-lang.org/learn/os_setup/install_gfortran/).
 
 ### Building Executable
-Note: Presuming no changes in the look-up table source code, you should only have to do this part ONCE.  After the executable is build and available on your system, you can use it to generate all look-up tables.
+Note: Presuming no changes in the look-up table source code, you should only have to do this part ONCE.  After the executables are build and available on your system, you can use all to generate all look-up tables regardless of time and locaiton.
 
 1. Confirm that you have a [fortran compiler](https://fortran-lang.org/compilers/) installed on your system.
 
@@ -118,11 +118,16 @@ Note: Presuming no changes in the look-up table source code, you should only hav
 cd src/glow_invert
 ```
 
-3. Run the `makefile` to generate the executable.  This can be done with the `make` command.
+3. Run the `makefile` to generate the executables.  This can be done with the `make` command.
 ```
-make
+make tables airglow
 ```
-This should generate the executable `glow_invert_tables.exe`.
+This should generate the executables `glow_invert_tables.exe` and `glow_invert_airglow.exe`.
+
+4. Make sure the shell script `generate_tables.sh` has execution permissions.  This can ususally be done by running
+```
+chmod +x generate_tables.sh
+```
 
 #### Troubleshooting
 You may have to edit the makefile for it to work on your particular system.  For instance, by default the makefile specifies gfortran as the compiler with the line:
@@ -156,15 +161,15 @@ cd path/to/asispectralinversion/src/glow_invert
    - Ap: 10.0
    - output directory: path/to/output/directory/for/lookup/tables
 
-4. Run the executable program `glow_invert_tables.exe` with your customized `in.invert` file as input.
+4. Run the shell script `generate_tables.sh` with your customized `in.invert` file as a command line argument to generate all lookup tables required for the ASI inversion code
 
-```./glow_invert_tables_v3.exe < path/to/in.invert```
+```./generate_tables.sh path/to/in.invert```
 
-   Depending on your machine, this may take a while. It takes my machine about 20 minutes to generate one table.
+   Depending on your machine, this may take a while. It takes my machine about 20 minutes to generate one set oftables.
 
 5. Check your output directory (specified in in.invert)
 
-   There should be 11 files that are generated and stored in this folder:
+   There should be 11 files that are generated and stored in this folder, pluss the subfolder `airglow` with 11 more files contained within:
 
    - edens3d_23078_29760.bin
    - eta4278_23078_29760.bin
@@ -177,7 +182,17 @@ cd path/to/asispectralinversion/src/glow_invert
    - I6300_23078_29760.bin
    - I8446_23078_29760.bin
    - ped3d_23078_29760.bin
-  
+   - airglow/edens3d_23078_29760.bin
+   - airglow/eta4278_23078_29760.bin
+   - airglow/eta5577_23078_29760.bin
+   - airglow/eta6300_23078_29760.bin
+   - airglow/eta8446_23078_29760.bin
+   - airglow/hall3d_23078_29760.bin
+   - airglow/I4278_23078_29760.bin
+   - airglow/I5577_23078_29760.bin
+   - airglow/I6300_23078_29760.bin
+   - airglow/I8446_23078_29760.bin
+   - airglow/ped3d_23078_29760.bin
 
 ## Obtaining the skymap.mat file
 

@@ -1,4 +1,9 @@
-program glow_invert_tables
+program glow_invert_airglow
+
+! This file is near identical to glow_invert_tables.f90, except it only performs
+! calculations for a single instance of ec and q to approximate airglow 
+! brightness.  There is a lot of redundancy between these two scripts, but we'll
+! leave them as is for not for simplicity. -- L. Lamarche (2025-08-14)
 
 ! Adapted from glowdriver by Stan Solomon, 2/2016
 
@@ -194,7 +199,6 @@ program glow_invert_tables
         WRITE(41, '(I5.5)') iec
         close(41)
      ENDIF
-     write(*,*) iec, 'of', nec
      
      do iq = 1, nq, 1
         ef = qvec( iq )
@@ -408,4 +412,4 @@ program glow_invert_tables
   close(41)
   stop
   
-end program glow_invert_tables
+end program glow_invert_airglow
