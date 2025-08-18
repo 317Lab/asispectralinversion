@@ -74,11 +74,11 @@ def load_lookup_tables_directory(folder, maglat, plot = True):
     fnamehall = glob.glob(folder + 'hall3d*.bin')[0]
     
     # Airglow data
-    fnamereda = glob.glob(folder +'I6300*.bin')[0]
-    fnamegreena = glob.glob(folder + 'I5577*.bin')[0]
-    fnamebluea = glob.glob(folder + 'I4278*.bin')[0]
-    fnamepeda = glob.glob(folder + 'ped3d*.bin')[0]
-    fnamehalla = glob.glob(folder + 'hall3d*.bin')[0]
+    fnamereda = glob.glob(folder +'airglow/I6300*.bin')[0]
+    fnamegreena = glob.glob(folder + 'airglow/I5577*.bin')[0]
+    fnamebluea = glob.glob(folder + 'airglow/I4278*.bin')[0]
+    fnamepeda = glob.glob(folder + 'airglow/ped3d*.bin')[0]
+    fnamehalla = glob.glob(folder + 'airglow/hall3d*.bin')[0]
     
     v = load_lookup_tables(fnamered, fnamegreen, fnameblue, fnameped, fnamehall, maglat, plot = plot)
     va = load_lookup_tables(fnamereda, fnamegreena, fnamebluea, fnamepeda, fnamehalla, maglat, plot = False)
