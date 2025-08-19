@@ -21,17 +21,17 @@ pip install .
 ### Dependencies
 
 The following dependiences should be installed automatically.  If errors occur, follow the pacakge-specific installation instructions.
-    - [numpy](https://numpy.org)
-    - [scipy](https://scipy.org)
-    - [h5py](https://docs.h5py.org/en/latest/index.html)
-    - [matplotlib](https://matplotlib.org)
-    - [pandas](https://pandas.pydata.org)
-    - [pillow](https://pillow.readthedocs.io/en/stable/)
-    - [scikit-image](https://scikit-image.org)
-    - [skyfield](https://rhodesmill.org/skyfield/)
-    - [apexpy](https://apexpy.readthedocs.io/en/latest/)
-    - [PyWavelets](https://pywavelets.readthedocs.io/en/latest/index.html)
-    - [importlib_resources](https://importlib-resources.readthedocs.io/en/latest/index.html)
+- [numpy](https://numpy.org)
+- [scipy](https://scipy.org)
+- [h5py](https://docs.h5py.org/en/latest/index.html)
+- [matplotlib](https://matplotlib.org)
+- [pandas](https://pandas.pydata.org)
+- [pillow](https://pillow.readthedocs.io/en/stable/)
+- [scikit-image](https://scikit-image.org)
+- [skyfield](https://rhodesmill.org/skyfield/)
+- [apexpy](https://apexpy.readthedocs.io/en/latest/)
+- [PyWavelets](https://pywavelets.readthedocs.io/en/latest/index.html)
+- [importlib_resources](https://importlib-resources.readthedocs.io/en/latest/index.html)
 
 
 ## Running the asispectralinversion library
