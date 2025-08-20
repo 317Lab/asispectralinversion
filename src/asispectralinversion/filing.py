@@ -28,9 +28,10 @@ def seconds_since_midnight(time):
         - Turns 24 hour string time into float of seconds past midnight
     """
     
-    print("Finding seconds since midnight...")
+    #print("Finding seconds since midnight...")
     
-    return 60 * 60 * float(time[:2]) + 60 * float(time[2:4]) + float(time[4:])
+    #return 60 * 60 * float(time[:2]) + 60 * float(time[2:4]) + float(time[4:])
+    return 60 * 60 * time.hour + 60 * time.minute + time.second
 
 
 def shift_time(timestr, shift_min):
@@ -79,11 +80,16 @@ def genlinks(date, starttime, endtime):
     
     startsecs = seconds_since_midnight(starttime) # seconds from midnight of start time
     endsecs = seconds_since_midnight(endtime) # seconds from midnight of end time
-    hr = starttime[:2] # hour in string form
-    year = date[:4] # year in string form
+    #hr = starttime[:2] # hour in string form
+    #year = date[:4] # year in string form
+    #hr = starttime.hour
+    #year = date.year
 
     # Construct base url
-    url = 'http://optics.gi.alaska.edu/amisr_archive/PKR/DASC/PNG/' + year + '/' + date + '/' + hr
+    #f'{date:%Y}/{date:%Y%m%d}/{starttime:%H}'
+    #url = 'http://optics.gi.alaska.edu/amisr_archive/PKR/DASC/PNG/' + year + '/' + date + '/' + hr
+    url = 'http://optics.gi.alaska.edu/amisr_archive/PKR/DASC/PNG/' + f'{date:%Y}/{date:%Y%m%d}/{starttime:%H}'
+    print(url)
     
     # Pull and process file list
     soup = BeautifulSoup(requests.get(url).text,'html.parser')
@@ -91,6 +97,7 @@ def genlinks(date, starttime, endtime):
     rawlinks = soup.find_all('a')[5:]
     # Turning into a numpy array
     links = np.asarray(rawlinks).flatten()
+
     if len(links)==0:
         print('no imagery found')
         raise Exception('no links')
@@ -103,7 +110,9 @@ def genlinks(date, starttime, endtime):
     newlinks = np.zeros([len(links), 3])
     for i in range(len(links)):
         time,color = links[i].split('.')[0].split('_')[2:] # time and color from filename
-        newlinks[i, 0] = seconds_since_midnight(time) # seconds past midnight
+        t0 = dt.datetime.strptime(time, '%H%M%S')
+        #newlinks[i, 0] = seconds_since_midnight(time) # seconds past midnight
+        newlinks[i, 0] = seconds_since_midnight(t0) # seconds past midnight
         newlinks[i, 1] = color
         newlinks[i, 2] = time
 
@@ -139,36 +148,63 @@ def download_imagery(date, starttime, endtime, folder):
           <date>. An example input would be download_imagery('20230314','0730','0745')
     """
     
-    print("Downloading imageery from archive...")
+    print("Downloading imagery from archive...")
+
+    print(date, starttime, endtime)
     
     # folder should already exist, but if not:
     if not os.path.exists(folder):
         os.makedirs(folder)
     
     # Start hour and end hour are the same
-    if starttime[:2] == endtime[:2]:
+    print(starttime.hour, endtime.hour)
+
+#    for h in range(starttime.hour, endtime.hour+1):
+#        print(h)
+        
+    #if starttime[:2] == endtime[:2]:
+    if starttime.hour == endtime.hour:
         links, fnames = genlinks(date, starttime, endtime)
     # We do two pulls
     else:
-        # End of the first hour
-        endtime0 = starttime[:2] + '5959'
-        print(starttime)
-        print(endtime0)
+        links = list()
+        fnames = list()
+        for h in range(starttime.hour, endtime.hour+1):
+            if h == starttime.hour:
+                st = starttime
+                et = starttime.replace(minute=59, second=59)
+            elif h == endtime.hour:
+                st = endtime.replace(minute=0, second=0)
+                et = endtime
+            else:
+                st = dt.time(h, 0, 0)
+                et = dt.time(h, 59, 59)
+            print(st, et)
+            links0, fnames0 = genlinks(date, st, et)
+            links.extend(links0)
+            fnames.extend(fnames0)
 
-        links0, fnames0 = genlinks(date, starttime, endtime0)
-        # Start of the second hour
-        starttime1 = endtime[:2] + '0000'
-        links1, fnames1 = genlinks(date, starttime1, endtime)
-        
-        print(starttime1)
-        print(endtime)
-        # Concatenate
-        links = links0 + links1
-        fnames = fnames0 + fnames1
+
+#        # End of the first hour
+#        endtime0 = starttime[:2] + '5959'
+#        print(starttime)
+#        print(endtime0)
+#
+#        links0, fnames0 = genlinks(date, starttime, endtime0)
+#        # Start of the second hour
+#        starttime1 = endtime[:2] + '0000'
+#        links1, fnames1 = genlinks(date, starttime1, endtime)
+#        
+#        print(starttime1)
+#        print(endtime)
+#        # Concatenate
+#        links = links0 + links1
+#        fnames = fnames0 + fnames1
     #try:
         #os.mkdir(date)
     #except:
         #pass
+
     
     for i in range(len(links)):
         #if exists(date + '/' + fnames[i]):
@@ -177,14 +213,14 @@ def download_imagery(date, starttime, endtime, folder):
         #else:
             #wget.download(links[i], out=date)
         file_path = os.path.join(folder, fnames[i])
-        print(file_path)
+        #print(file_path)
         if exists(file_path):
             continue
         else:
             wget.download(links[i], out=file_path)
         
             
-    return date, starttime, endtime, folder
+    #return date, starttime, endtime, folder
 
 
 def sort_pngs(folder):
@@ -407,7 +443,7 @@ def file_data(date, starttime, endtime, folder):
     download_imagery(date, starttime, endtime, folder)
     #folder = sort_pngs(folder)
     #folder = png_2_h5(folder)
-    folder = group_frames(folder)
+    #folder = group_frames(folder)
 #    make_time_list(folder, output_txt)
 #    df = make_time_spreadsheet(output_txt, base_outdir)
 
@@ -450,9 +486,11 @@ def file_data(date, starttime, endtime, folder):
         #    get_timestamp(bf)
         #blue_tstmp = [[get_timestamp(f) for f in grouped_files[c][i]] for c in ['0428', '0558', '0630']]
         blue_tstmp = [get_timestamp(f)  for c in ['0428', '0558', '0630'] for f in grouped_files[c][i]]
-        print(i, blue_tstmp)
-        print(min(blue_tstmp), max(blue_tstmp))
+        #print(i, blue_tstmp)
+        #print(min(blue_tstmp), max(blue_tstmp))
         time_range.append(min(blue_tstmp))
+
+    #print(time_range)
 
         #print(grouped_files)
         
@@ -487,7 +525,7 @@ def file_data(date, starttime, endtime, folder):
 
 
 #def process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir, lambdas):
-def process_grouped_files(tstmps, files0428, files0558, files0630, maglatsite, folder, base_outdir):
+def process_grouped_files(tstmps, files0428, files0558, files0630, folder, base_outdir):
     """
     Purpose:
         - pulls info from get_grouped_files and feeds all of the processed h5s into feed_data function
@@ -501,7 +539,7 @@ def process_grouped_files(tstmps, files0428, files0558, files0630, maglatsite, f
         #print('GREEN', greenfiles)
         #print('BLUE', bluefiles)
         output_name = os.path.join(base_outdir, f'asi_invert_{tstmps[i]:%Y%m%d_%H%M%S}.h5')
-        feed_data(tstmps[i], maglatsite, folder, files0428[i], files0558[i], files0630[i], output_name)
+        feed_data(tstmps[i], folder, files0428[i], files0558[i], files0630[i], output_name)
     
 #    # Find the maximum number of groups across all wavelengths
 #    max_groups = max(len(files) for files in grouped_files.values())
