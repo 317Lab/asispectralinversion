@@ -24,8 +24,11 @@ dependencies = [
     "matplotlib",
     "pandas",
     "pillow",
+    "beautifulsoup4",
     "scikit-image",
     "skyfield",
+    "requests",
+    "wget",
     "apexpy",
     "PyWavelets",
     "importlib_resources>1.3; python_version < '3.10'"

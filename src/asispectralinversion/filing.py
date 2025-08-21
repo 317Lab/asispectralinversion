@@ -1,17 +1,12 @@
 import numpy as np
-import h5py
+import datetime as dt
 import os
-from PIL import Image
 import glob
 import re
-import shutil
 from bs4 import BeautifulSoup
 import requests
-from os.path import exists
 import wget
 from .transformation import feed_data
-import pandas as pd
-import datetime as dt
 
 """
 Purpose of this script:
@@ -214,7 +209,7 @@ def download_imagery(date, starttime, endtime, folder):
             #wget.download(links[i], out=date)
         file_path = os.path.join(folder, fnames[i])
         #print(file_path)
-        if exists(file_path):
+        if os.path.exists(file_path):
             continue
         else:
             wget.download(links[i], out=file_path)
@@ -286,47 +281,47 @@ def download_imagery(date, starttime, endtime, folder):
 #    return folder
 
 
-def group_frames(folder):
-    """
-    Purpose:
-        - groups H5 files by threes, renames them sequentially, and saves them into respective wavelength folders.
-    """
-    
-    print("Grouping frames for co-adding...")
-    
-    lambdas = ['0630/h5_files/', '0558/h5_files/', '0428/h5_files/']  # red, green, blue wavelengths, but with subfolder
-    for lam in lambdas:
-        folder_lam = os.path.join(folder, lam)
-        
-        # Check if directory exists (do not want to duplicate from prev function call)
-        if not os.path.isdir(folder_lam):
-            continue
-        
-        # List all h5 files in the directory and sort them by date/time based on filename
-        h5_list = sorted(glob.glob(os.path.join(folder_lam, '*_*.h5')), key=lambda x: re.search(r'_(\d{8}_\d{6})', x).group(1) if re.search(r'_(\d{8}_\d{6})', x) else '')
-    
-        # Group into 3 h5s for 3 frames to later co-add
-        grouped_h5 = [h5_list[i: i + 3] for i in range(0, len(h5_list), 3)]
-    
-        # Rename grouped h5 files (so regardless of wavelength, they conveniently share the same fn based on group number)
-        for idx, files in enumerate(grouped_h5, start=1):
-            if len(files) == 3:
-                grouped = 'grouped_h5_files/'
-                folder_grouped = os.path.join(folder_lam, grouped)
-                os.makedirs(folder_grouped, exist_ok=True)
-                output_h5 = os.path.join(folder_grouped, f"grouped_{idx}.h5")
-            
-                # Write the new grouped files
-                with h5py.File(output_h5, 'w') as h5:
-                    for i, file in enumerate(files):
-                        with h5py.File(file, 'r') as h5src:
-                            # Copy data from source files to new combined file
-                            data = h5src['data'][:]  # shape of 512 x 512 
-                            h5.create_dataset(f'frame_{i + 1}', data=data)
-            else:
-                continue
-                
-    return folder
+#def group_frames(folder):
+#    """
+#    Purpose:
+#        - groups H5 files by threes, renames them sequentially, and saves them into respective wavelength folders.
+#    """
+#    
+#    print("Grouping frames for co-adding...")
+#    
+#    lambdas = ['0630/h5_files/', '0558/h5_files/', '0428/h5_files/']  # red, green, blue wavelengths, but with subfolder
+#    for lam in lambdas:
+#        folder_lam = os.path.join(folder, lam)
+#        
+#        # Check if directory exists (do not want to duplicate from prev function call)
+#        if not os.path.isdir(folder_lam):
+#            continue
+#        
+#        # List all h5 files in the directory and sort them by date/time based on filename
+#        h5_list = sorted(glob.glob(os.path.join(folder_lam, '*_*.h5')), key=lambda x: re.search(r'_(\d{8}_\d{6})', x).group(1) if re.search(r'_(\d{8}_\d{6})', x) else '')
+#    
+#        # Group into 3 h5s for 3 frames to later co-add
+#        grouped_h5 = [h5_list[i: i + 3] for i in range(0, len(h5_list), 3)]
+#    
+#        # Rename grouped h5 files (so regardless of wavelength, they conveniently share the same fn based on group number)
+#        for idx, files in enumerate(grouped_h5, start=1):
+#            if len(files) == 3:
+#                grouped = 'grouped_h5_files/'
+#                folder_grouped = os.path.join(folder_lam, grouped)
+#                os.makedirs(folder_grouped, exist_ok=True)
+#                output_h5 = os.path.join(folder_grouped, f"grouped_{idx}.h5")
+#            
+#                # Write the new grouped files
+#                with h5py.File(output_h5, 'w') as h5:
+#                    for i, file in enumerate(files):
+#                        with h5py.File(file, 'r') as h5src:
+#                            # Copy data from source files to new combined file
+#                            data = h5src['data'][:]  # shape of 512 x 512 
+#                            h5.create_dataset(f'frame_{i + 1}', data=data)
+#            else:
+#                continue
+#                
+#    return folder
 
 
 #def make_time_list(folder, output_txt):
