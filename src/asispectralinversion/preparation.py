@@ -16,25 +16,46 @@ Purpose of this script:
 
 
 
-def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
+def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=0.4, blur_deg_NS=0.04, n_shift=50, background_method='corners', dec=2, plot=True):
     """
     Purpose: 
-        - prepares Q, E0, SigP, and SigH given ASI data
+        - prepares ASI images for inversion with necessary smoothing, ext
+    Input:
+        dtdate: datetime.date
+            Date the inversion is calculated on
+        redimgs: list of str
+            List of filenames (png) of red images to include in the inversion
+        greenimgs: list of str
+            List of filenames (png) of green images to include in the inversion
+        blueimgs: list of str
+            List of filenames (png) of blue images to include in the inversion
+        skymap_file: str (optional)
+            Path to skymap file when not using default (PKR)
+        blur_deg_EW: float (optional)
+            East-West bluring in degrees
+        blur_deg_NS: float (optional)
+            North-South bluring in degrees
+        n_shift: int (optional)
+            N shift
+        background_method: str (optional)
+            Method for determining the corners - 'corners' or 'patches'
+        dec : int (optional)
+            Number of pixels to decimate image by
+        plot: bool (optional)
+            Whether or not to generate intermediate plots (default=False)
+    
     """
-    # Main inversion??
     
     print("Pulling information from data files and lookup tables...")
 
     #dtdate = datetime.date(int(date[:4]),int(date[4:6]),int(date[6:])) # creating datetime object from given date
-    # These should be function parameters
-    blur_deg_EW = 0.4 # gaussian blur width in degrees maglon
-    blur_deg_NS = 0.04 # gaussian blur width in degrees maglat
-    n_shifts = 50 # integer determining shift-invariance of wavelets
-    background_method = 'corners' # set to 'patches' or 'corners'
+#    # These should be function parameters
+#    blur_deg_EW = 0.4 # gaussian blur width in degrees maglon
+#    blur_deg_NS = 0.04 # gaussian blur width in degrees maglat
+#    n_shifts = 50 # integer determining shift-invariance of wavelets
+#    background_method = 'corners' # set to 'patches' or 'corners'
+#    dec = 2 # 'dec = 2' returns given resolution
 
-    ## Load lookup tables
-    #v = load_lookup_tables_directory(folder, maglatsite)
-    
     # Load PNGs
     redims = list()
     for src_file in redimgs:
@@ -243,8 +264,6 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     blueray[np.where(blueray < 0)] = 0
     
     print("Decimating images...")
-
-    dec = 2 # 'dec = 2' returns given resolution
 
     redraydec = redray[::dec, ::dec]
     blueraydec = blueray[::dec, ::dec]

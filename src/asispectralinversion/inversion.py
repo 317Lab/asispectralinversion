@@ -2,6 +2,7 @@ import numpy as np
 import scipy.integrate
 import scipy.interpolate
 import glob
+import matplotlib.pyplot as plt
 
 
 def sig_integrator(sigmat, altvec, maglat):
@@ -95,7 +96,7 @@ def load_lookup_tables_directory(folder, maglat, plot = True):
     return v
 
 
-def calculate_E0_Q_v2(redbright, greenbright, bluebright, inlookup_table, minE0 = 150, generous = False):
+def calculate_E0_Q_v2(redbright, greenbright, bluebright, inlookup_table, minE0 = 150, generous = False, plot=True):
     """
     Purpose: 
         - given RGB brightness arrays (calibrated, in Rayleighs) and a lookup table for the correct night, estimates E0 and Q
@@ -123,7 +124,7 @@ def calculate_E0_Q_v2(redbright, greenbright, bluebright, inlookup_table, minE0 
     minE0ind = np.where(lookup_table['E0vec']>minE0)[0][0]
     
     # Estimates Q from blue brightness, along with error bars
-    qvec, maxqvec, minqvec = q_interp(lookup_table['bluemat'], lookup_table['Qvec'], lookup_table['E0vec'], bluevec, minE0ind=minE0ind, maxbluebright='auto', interp='linear', plot=False)
+    qvec, maxqvec, minqvec = q_interp(lookup_table['bluemat'], lookup_table['Qvec'], lookup_table['E0vec'], bluevec, minE0ind=minE0ind, maxbluebright='auto', interp='linear', plot=plot)
 
     # Estimates E0 from red/green ratio and estimated Q value
     e0vec = e0_interp_general(lookup_table['redmat'] / lookup_table['greenmat'], lookup_table['Qvec'], lookup_table['E0vec'], (redvec / greenvec), qvec)
@@ -137,6 +138,17 @@ def calculate_E0_Q_v2(redbright, greenbright, bluebright, inlookup_table, minE0 
         qvec[np.where(bluevec<np.amin(lookup_table['bluemat']))] = 0
         e0vec[np.where((redvec == 0) | (greenvec == 0))] = 0
         e0vec[np.where((redvec/greenvec) > np.amax(lookup_table['redmat'] / lookup_table['greenmat']))] = 0
+
+    if plot:
+        # Plot Q
+        plt.pcolormesh(qvec.reshape(shape).T)
+        plt.title('Energy Flux')
+        plt.show()
+
+        # Plot E0
+        plt.pcolormesh(qvec.reshape(shape).T)
+        plt.title('Characteristic Energy')
+        plt.show()
 
     return qvec.reshape(shape), e0vec.reshape(shape), minqvec.reshape(shape), maxqvec.reshape(shape), mine0vec.reshape(shape), maxe0vec.reshape(shape)
 
@@ -177,7 +189,7 @@ def calculate_E0_Q(redbright, greenbright, bluebright, lookup_table, minE0 = 150
     return qvec.reshape(shape), e0vec.reshape(shape), minqvec.reshape(shape), maxqvec.reshape(shape), mine0vec.reshape(shape), maxe0vec.reshape(shape)
 
 
-def calculate_Sig(q, e0, lookup_table, generous = False):
+def calculate_Sig(q, e0, lookup_table, generous = False, plot=True):
     """
     Purpose: 
         - given a processed lookup table dict from load_lookup_tables and arrays of  Q and E0, interpolates to calculate conductances
@@ -219,6 +231,18 @@ def calculate_Sig(q, e0, lookup_table, generous = False):
     if generous:
         SigPout[np.where( (qvec == 0) | (e0vec == 0) )] = np.amin(SigPout)
         SigHout[np.where( (qvec == 0) | (e0vec == 0) )] = np.amin(SigHout)
+
+    if plot:
+        # Plot SigP
+        plt.pcolormesh(SigPout.reshape(shape).T)
+        plt.title('Pedersen Conductance')
+        plt.show()
+
+        # Plot E0
+        plt.pcolormesh(SigHout.reshape(shape).T)
+        plt.title('Hall Conductance')
+        plt.show()
+
     return SigPout.reshape(shape),SigHout.reshape(shape)
 
 
