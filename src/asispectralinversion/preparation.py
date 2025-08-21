@@ -122,9 +122,9 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     gmlat, gmlon = A.geo2apex(skymapgreen[0], skymapgreen[1], height=110)
     rmlat, rmlon = A.geo2apex(skymapred[0], skymapred[1], height=180)
 
-    print(bmlat.shape, bmlon.shape)
-    print(gmlat.shape, gmlon.shape)
-    print(rmlat.shape, rmlon.shape)
+#    print(bmlat.shape, bmlon.shape)
+#    print(gmlat.shape, gmlon.shape)
+#    print(rmlat.shape, rmlon.shape)
 
     # Define common, regular grid
     gridmlat, gridmlon = common_grid(bmlat, bmlon, gmlat, gmlon, rmlat, rmlon)
@@ -248,7 +248,7 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, plot=True):
     
     print("Decimating images...")
 
-    dec = 2 # 'dec = 2' returns given resolution
+    dec = 32 # 'dec = 2' returns given resolution
 
     redraydec = redray[::dec, ::dec]
     blueraydec = blueray[::dec, ::dec]

@@ -34,40 +34,40 @@ def seconds_since_midnight(time):
     return 60 * 60 * time.hour + 60 * time.minute + time.second
 
 
-def shift_time(timestr, shift_min):
-    """
-    Purpose:
-        - Shifts a string of time 'hhmmss' by some number of minutes
-        - Can use fractional minutes (not intended for that) but should
-        - Make a whole number of seconds, then write string to pass along
-    """
-    
-    print("Accounting for time shift...")
-    
-    hr = float(timestr[:2])
-    mn = float(timestr[2:4])
-    sc = float(timestr[4:])
-    
-    t = 60 * 60 * hr + 60 * mn + sc
-    t += 60 * shift_min
-    
-    hr = np.floor( t / (60 * 60) )
-    mn = np.floor( (t - 60 * 60 * hr) / 60 )
-    sc = np.floor( t - 60 * 60 * hr - 60 * mn )
-    
-    def num2str(num):
-        """
-        Purpose:
-            - Converts type num to str
-        """
-        if num >= 10:
-            strout = str(int(num))
-        else:
-            strout = '0' + str(int(num))
-        
-        return strout
-    
-    return num2str(hr) + num2str(mn) + num2str(sc)
+#def shift_time(timestr, shift_min):
+#    """
+#    Purpose:
+#        - Shifts a string of time 'hhmmss' by some number of minutes
+#        - Can use fractional minutes (not intended for that) but should
+#        - Make a whole number of seconds, then write string to pass along
+#    """
+#    
+#    print("Accounting for time shift...")
+#    
+#    hr = float(timestr[:2])
+#    mn = float(timestr[2:4])
+#    sc = float(timestr[4:])
+#    
+#    t = 60 * 60 * hr + 60 * mn + sc
+#    t += 60 * shift_min
+#    
+#    hr = np.floor( t / (60 * 60) )
+#    mn = np.floor( (t - 60 * 60 * hr) / 60 )
+#    sc = np.floor( t - 60 * 60 * hr - 60 * mn )
+#    
+#    def num2str(num):
+#        """
+#        Purpose:
+#            - Converts type num to str
+#        """
+#        if num >= 10:
+#            strout = str(int(num))
+#        else:
+#            strout = '0' + str(int(num))
+#        
+#        return strout
+#    
+#    return num2str(hr) + num2str(mn) + num2str(sc)
 
  
 def genlinks(date, starttime, endtime):
@@ -223,67 +223,67 @@ def download_imagery(date, starttime, endtime, folder):
     #return date, starttime, endtime, folder
 
 
-def sort_pngs(folder):
-    """
-    Moves PNG files into subfolders based on the wavelength in their filenames.
-    """
-    
-    print("Sorting PNGs...")
-    
-    # Creating pattern to read PNG files and sort them
-    os.chdir(folder) # go into folder if not already there
-    files = os.listdir(folder) # pulls all files in directory (should just be PNGs for the hour)
-    pattern = re.compile(r'_(\d{4})\.png$') # sort by wavelength
-    
-    for file in files:
-        if file.endswith('.png'): # pull anything with PNG extension (should be everything in folder)
-            match = pattern.search(file) # pull wavelength from filename
-            if match:
-                wavelength = match.group(1)
-                subfolder = wavelength
-                if not os.path.exists(subfolder): # create subfolder for all wavelengths
-                    os.makedirs(subfolder)
-                shutil.move(file, os.path.join(subfolder, file)) # move PNGs into respective wavelenght subfolder
-    
-    return folder
-
-
-def png_2_h5(folder):
-    """
-    Purpose:
-        - reads sorted PNG files
-        - creates a new subfolder to store hdf5 files
-        - converts each PNG file into an hdf5 file
-        - stores converted files into new hdf5 folder
-    """
-
-    print("Converting PNGs to HDF5s...")
-    
-    lambdas = ['0630', '0558', '0428'] # red, green, blue wavelengths
-    h5_dirs = [] # initalize empty directory
-
-    # Go by each wavelength subfolder
-    for lam in lambdas:
-        lambda_folder = os.path.join(folder, lam)
-        h5_folder = os.path.join(lambda_folder, 'h5_files')
-        os.makedirs(h5_folder, exist_ok=True) # bypass if already exists, make if not
-        h5_dirs.append(h5_folder)
-        
-        # Process PNG files
-        for file in os.listdir(lambda_folder):
-            if file.endswith('.png'): # pulls all files with PNG extension
-                src_file = os.path.join(lambda_folder, file)
-                h5_file = os.path.join(h5_folder, file.replace('.png', '.h5'))
-                
-                # Convert PNG to numpy array
-                with Image.open(src_file) as img:
-                    img_array = np.array(img)
-
-                # Write numpy array to HDF5 file
-                with h5py.File(h5_file, 'w') as h5:
-                    h5.create_dataset('data', data=img_array)
-
-    return folder
+#def sort_pngs(folder):
+#    """
+#    Moves PNG files into subfolders based on the wavelength in their filenames.
+#    """
+#    
+#    print("Sorting PNGs...")
+#    
+#    # Creating pattern to read PNG files and sort them
+#    os.chdir(folder) # go into folder if not already there
+#    files = os.listdir(folder) # pulls all files in directory (should just be PNGs for the hour)
+#    pattern = re.compile(r'_(\d{4})\.png$') # sort by wavelength
+#    
+#    for file in files:
+#        if file.endswith('.png'): # pull anything with PNG extension (should be everything in folder)
+#            match = pattern.search(file) # pull wavelength from filename
+#            if match:
+#                wavelength = match.group(1)
+#                subfolder = wavelength
+#                if not os.path.exists(subfolder): # create subfolder for all wavelengths
+#                    os.makedirs(subfolder)
+#                shutil.move(file, os.path.join(subfolder, file)) # move PNGs into respective wavelenght subfolder
+#    
+#    return folder
+#
+#
+#def png_2_h5(folder):
+#    """
+#    Purpose:
+#        - reads sorted PNG files
+#        - creates a new subfolder to store hdf5 files
+#        - converts each PNG file into an hdf5 file
+#        - stores converted files into new hdf5 folder
+#    """
+#
+#    print("Converting PNGs to HDF5s...")
+#    
+#    lambdas = ['0630', '0558', '0428'] # red, green, blue wavelengths
+#    h5_dirs = [] # initalize empty directory
+#
+#    # Go by each wavelength subfolder
+#    for lam in lambdas:
+#        lambda_folder = os.path.join(folder, lam)
+#        h5_folder = os.path.join(lambda_folder, 'h5_files')
+#        os.makedirs(h5_folder, exist_ok=True) # bypass if already exists, make if not
+#        h5_dirs.append(h5_folder)
+#        
+#        # Process PNG files
+#        for file in os.listdir(lambda_folder):
+#            if file.endswith('.png'): # pulls all files with PNG extension
+#                src_file = os.path.join(lambda_folder, file)
+#                h5_file = os.path.join(h5_folder, file.replace('.png', '.h5'))
+#                
+#                # Convert PNG to numpy array
+#                with Image.open(src_file) as img:
+#                    img_array = np.array(img)
+#
+#                # Write numpy array to HDF5 file
+#                with h5py.File(h5_file, 'w') as h5:
+#                    h5.create_dataset('data', data=img_array)
+#
+#    return folder
 
 
 def group_frames(folder):
@@ -329,106 +329,106 @@ def group_frames(folder):
     return folder
 
 
-def make_time_list(folder, output_txt):
-    """
-    Purpose:
-        - creates a list of time ranges from the files in the specified folder and saves it to a text file
-    """ 
-    
-    print("Making list of time ranges between image captures...")
-    
-    lambdas = ['0428', '0558', '0630']
-    file_lists = []
-
-    for lam in lambdas:
-        folder_lam = os.path.join(folder, lam)
-        file_list = sorted(glob.glob(os.path.join(folder_lam, '*_*.png')), key=lambda x: re.search(r'_(\d{8}_\d{6})', x).group(1))
-        file_lists.append(file_list)
-
-    grouped_files = []
-
-    for i in range(0, len(file_lists[0]), 3):
-        group = []
-        for file_list in file_lists:
-            group.extend(file_list[i:i + 3])
-        grouped_files.append(group)
-        
-    time_ranges = []
-
-    for idx, group in enumerate(grouped_files):
-        if len(group) == 9: # 3 frames per wavelength
-            times = []
-            for file in group:
-                match = re.search(r'_(\d{8}_\d{6})', file)
-                if match:
-                    time_str = match.group(1)[8:]
-                    times.append(time_str)
-            if times:
-                min_time = min(times)
-                max_time = max(times)
-                range_str = f"{min_time}-{max_time}"
-                time_ranges.append(range_str)
-    
-    # Write the time ranges to a text file
-    with open(output_txt, 'w') as f:
-        for time_range in time_ranges:
-            f.write(f"{time_range}\n")
-
-    return time_ranges
-
-
-def make_time_spreadsheet(output_txt, base_outdir):
-    """
-    Purpose:
-        - creates a spreadsheet that details:
-            - when first image from file group was taken
-            - when last image from file group was taken
-            - total time from first frame to last in co-adding
-    """
-    
-    # Read txt file
-    with open(output_txt, 'r') as file:
-        lines = file.readlines()
-        
-    # Initialize to store
-    starts = []
-    ends = []
-    diffs = []
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        
-        start, end = line.split('-')
-        start = start.lstrip('_')
-        end = end.lstrip('_')
-        
-        # Convert from text to integer
-        start_int = int(start)
-        end_int = int(end)
-        
-        # Find time of co-added groups (time cadence between frames)
-        diff = end_int - start_int
-        
-        # Append into columns
-        starts.append(start_int)
-        ends.append(end_int)
-        diffs.append(diff)
-        
-        # Make into pds dataframe
-        df = pd.DataFrame({
-            'Start': starts,
-            'End': ends,
-            'Difference': diffs})
-        
-        output_csv_fn = 'time_ranges.csv'
-        output_csv = os.path.join(base_outdir, output_csv_fn)
-        
-        # Save as csv
-        df.to_csv(output_csv, index=False)
-    
-    return df
+#def make_time_list(folder, output_txt):
+#    """
+#    Purpose:
+#        - creates a list of time ranges from the files in the specified folder and saves it to a text file
+#    """ 
+#    
+#    print("Making list of time ranges between image captures...")
+#    
+#    lambdas = ['0428', '0558', '0630']
+#    file_lists = []
+#
+#    for lam in lambdas:
+#        folder_lam = os.path.join(folder, lam)
+#        file_list = sorted(glob.glob(os.path.join(folder_lam, '*_*.png')), key=lambda x: re.search(r'_(\d{8}_\d{6})', x).group(1))
+#        file_lists.append(file_list)
+#
+#    grouped_files = []
+#
+#    for i in range(0, len(file_lists[0]), 3):
+#        group = []
+#        for file_list in file_lists:
+#            group.extend(file_list[i:i + 3])
+#        grouped_files.append(group)
+#        
+#    time_ranges = []
+#
+#    for idx, group in enumerate(grouped_files):
+#        if len(group) == 9: # 3 frames per wavelength
+#            times = []
+#            for file in group:
+#                match = re.search(r'_(\d{8}_\d{6})', file)
+#                if match:
+#                    time_str = match.group(1)[8:]
+#                    times.append(time_str)
+#            if times:
+#                min_time = min(times)
+#                max_time = max(times)
+#                range_str = f"{min_time}-{max_time}"
+#                time_ranges.append(range_str)
+#    
+#    # Write the time ranges to a text file
+#    with open(output_txt, 'w') as f:
+#        for time_range in time_ranges:
+#            f.write(f"{time_range}\n")
+#
+#    return time_ranges
+#
+#
+#def make_time_spreadsheet(output_txt, base_outdir):
+#    """
+#    Purpose:
+#        - creates a spreadsheet that details:
+#            - when first image from file group was taken
+#            - when last image from file group was taken
+#            - total time from first frame to last in co-adding
+#    """
+#    
+#    # Read txt file
+#    with open(output_txt, 'r') as file:
+#        lines = file.readlines()
+#        
+#    # Initialize to store
+#    starts = []
+#    ends = []
+#    diffs = []
+#    
+#    for line in lines:
+#        line = line.strip()
+#        if not line:
+#            continue
+#        
+#        start, end = line.split('-')
+#        start = start.lstrip('_')
+#        end = end.lstrip('_')
+#        
+#        # Convert from text to integer
+#        start_int = int(start)
+#        end_int = int(end)
+#        
+#        # Find time of co-added groups (time cadence between frames)
+#        diff = end_int - start_int
+#        
+#        # Append into columns
+#        starts.append(start_int)
+#        ends.append(end_int)
+#        diffs.append(diff)
+#        
+#        # Make into pds dataframe
+#        df = pd.DataFrame({
+#            'Start': starts,
+#            'End': ends,
+#            'Difference': diffs})
+#        
+#        output_csv_fn = 'time_ranges.csv'
+#        output_csv = os.path.join(base_outdir, output_csv_fn)
+#        
+#        # Save as csv
+#        df.to_csv(output_csv, index=False)
+#    
+#    return df
 
 
 def file_data(date, starttime, endtime, folder):
@@ -535,6 +535,7 @@ def process_grouped_files(tstmps, files0428, files0558, files0630, folder, base_
 
     #for redfiles, greenfiles, bluefiles in zip(grouped_files['0630'], grouped_files['0558'], grouped_files['0428']):
     for i in range(len(tstmps)):
+        print(tstmps[i])
         #print('RED', redfiles)
         #print('GREEN', greenfiles)
         #print('BLUE', bluefiles)

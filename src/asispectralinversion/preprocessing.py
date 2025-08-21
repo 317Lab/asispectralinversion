@@ -12,11 +12,11 @@ def common_grid(bmlat, bmlon, gmlat, gmlon, rmlat, rmlon):
 
     minmlat = np.max([np.nanmin(bmlat), np.nanmin(gmlat), np.nanmin(rmlat)])
     maxmlat = np.min([np.nanmax(bmlat), np.nanmax(gmlat), np.nanmax(rmlat)])
-    print('GRID LAT LIMS:', minmlat, maxmlat)
+    #print('GRID LAT LIMS:', minmlat, maxmlat)
     
     minmlon = np.max([np.nanmin(bmlon), np.nanmin(gmlon), np.nanmin(rmlon)])
     maxmlon = np.min([np.nanmax(bmlon), np.nanmax(gmlon), np.nanmax(rmlon)])
-    print('GRID LON LIMS:', minmlon, maxmlon)
+    #print('GRID LON LIMS:', minmlon, maxmlon)
 
     interplonvec = np.linspace(minmlon, maxmlon, 1024)
     interplatvec = np.linspace(minmlat, maxmlat, 1024)
