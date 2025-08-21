@@ -185,7 +185,7 @@ def file_data(date, starttime, endtime, folder):
 def process_grouped_files(tstmps, files0428, files0558, files0630, folder, base_outdir, skymap_file=None):
     """
     Purpose:
-        - pulls info from get_grouped_files and feeds all of the processed h5s into feed_data function
+        - automatically process groups of png files
         - this is what allows for the process to be time varying!!
     """ 
 
