@@ -1,13 +1,42 @@
 import numpy as np
 from apexpy import Apex
-import matplotlib.pyplot as plt
 import scipy.interpolate
-import datetime
+import matplotlib.pyplot as plt
 from skimage.restoration import denoise_wavelet, cycle_spin, estimate_sigma
 
-# Interpolates an image, given a grid, onto a new regular grid
-# Takes the image, the old lon/lat grid, and lon/lat vectors for the new mesh grid
-def interpolate_reggrid(im,oldlon,oldlat,newlonvec,newlatvec):
+
+def common_grid(bmlat, bmlon, gmlat, gmlon, rmlat, rmlon):
+    """
+    Purpose:
+        - generate common grid from intial magnetic blue, green, and red grid
+    """
+
+    minmlat = np.max([np.nanmin(bmlat), np.nanmin(gmlat), np.nanmin(rmlat)])
+    maxmlat = np.min([np.nanmax(bmlat), np.nanmax(gmlat), np.nanmax(rmlat)])
+    #print('GRID LAT LIMS:', minmlat, maxmlat)
+    
+    minmlon = np.max([np.nanmin(bmlon), np.nanmin(gmlon), np.nanmin(rmlon)])
+    maxmlon = np.min([np.nanmax(bmlon), np.nanmax(gmlon), np.nanmax(rmlon)])
+    #print('GRID LON LIMS:', minmlon, maxmlon)
+
+    interplonvec = np.linspace(minmlon, maxmlon, 1024)
+    interplatvec = np.linspace(minmlat, maxmlat, 1024)
+
+    gridmlat, gridmlon = np.meshgrid(interplatvec, interplonvec)
+
+    return gridmlat, gridmlon
+
+
+
+def interpolate_reggrid(im, oldlon, oldlat, newlon, newlat):
+    """
+    Purpose: 
+        - interpolates an image, given a grid, onto a new regular grid
+        - takes the image, the old lat/lon grid, and lat/lon vectors for the new mesh grid
+    """
+
+    print('interpolate image...')
+    
     # Masks out NaNs
     lonmasked = np.ma.masked_invalid(oldlon)
     latmasked = np.ma.masked_invalid(oldlat)
@@ -15,150 +44,159 @@ def interpolate_reggrid(im,oldlon,oldlat,newlonvec,newlatvec):
     # Pulls out unmasked part of old grid
     longood = lonmasked[~lonmasked.mask]
     latgood = latmasked[~lonmasked.mask]
+    
     # Pulls out part of image corresponding to valid lon/lat coords
     imgood = im[~lonmasked.mask]
 
     # Creates the new mesh grid
-    newlat, newlon = np.meshgrid(newlatvec,newlonvec)
+    #newlat, newlon = np.meshgrid(newlatvec, newlonvec)
 
     # Interpolates the image onto the new grid
-    newimvec = scipy.interpolate.griddata(np.asarray([longood,latgood]).T,imgood,np.asarray([newlon.reshape(-1),newlat.reshape(-1)]).T, method='linear')
+    newimvec = scipy.interpolate.griddata(np.asarray([longood, latgood]).T, imgood, np.asarray([newlon.reshape(-1), newlat.reshape(-1)]).T, method='linear')
 
-    return newimvec.reshape(newlat.shape),newlon,newlat
+    #return newimvec.reshape(newlat.shape), newlon, newlat
+    return newimvec.reshape(newlat.shape)
 
+
+# A gaussian function
+def gauss(x, A, x0, sigma):
+    return A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+
+
+def background_brightness_darkpatches(im, mask, plot=True):
+    """
+    Purpose: 
+        - given an unmapped image, finds dark patches of sky to estimate background brightness
+          and gaussian noise level
+    """
     
-# Given an unmapped image, finds dark patches of sky to estimate background brightness and gaussian noise level
-def background_brightness_darkpatches(im,lon,lat,plot=False):
-    # A gaussian function
-    def gauss(x, A, x0, sigma):
-        return A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+#<<<<<<< HEAD
+## Given an unmapped image, finds dark patches of sky to estimate background brightness and gaussian noise level
+#def background_brightness_darkpatches(im,lon,lat,plot=False):
+#    # A gaussian function
+#    def gauss(x, A, x0, sigma):
+#        return A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+#=======
+    im[mask] = np.nan
     
-    # First we have to break the image up into patches:
-    rows,cols = im.shape
+    # First, break the image up into patches:
+    rows, cols = im.shape
+#>>>>>>> production
+    
     # Size of patches - they will be of size *step* x *step*
     #step = 5
     step = 10
     # print('patch size='+str(step**2))
     
     # Indices to iterate through
-    rowinds = np.arange(0,rows,step)
-    colinds = np.arange(0,cols,step)
+    rowinds = np.arange(0, rows, step)
+    colinds = np.arange(0, cols, step)
     
     # Construct a list of median brightnesses for each valid patch
-    
-    # Initialize vector keeping track of medians
-    medvec = []
+    # Can this be done through sliding window functions?
+    medvec = [] # initialize vector keeping track of medians
     for i in rowinds:
         for j in colinds:
-            # Extract patch
-            imbin = im[i:i+step+1,j:j+step+1]
-            # All the valid brightnesses in the patch
-            imbingood = imbin[np.where(~np.isnan((lon+lat)[i:i+step+1,j:j+step+1]))]
-            # Discard patch if it is more than half invalid.
-            # Otherwise, calculate the median
-            if len(imbingood)>=((step+1)**2)/2:
-                medi = np.median(imbingood)
+            imbin = im[i: i + step + 1, j: j + step + 1] # extract patch
+            #if len(imbingood)>=((step+1)**2)/2: # discard patch if it is more than half invalid.
+            if np.sum(~np.isnan(imbin))>=((step+1)**2)/2: # discard patch if it is more than half invalid.
+                medi = np.median(imbin) 
                 medvec.append(medi)
-            else:
+            else: # otherwise, calculate the median
                 continue
     medvec = np.asarray(medvec)
-    #print(len(medvec))
+
 
     # Choose a maximum cutoff brightness, using quantiles or a specified absolute brightness
+    medbright = np.sort(medvec)[1] # we will have at least two patches kept
 
-    #medbright = np.quantile(medvec,0.0002)
-    # We will have at least two patches kept
-    medbright = np.sort(medvec)[1]
+    # Construct a list of all the brightness points from patches below the max brightness cutoff
+    imvec = [] # vector keeping track of all pixels from patches dimmer than medbright
 
-    # Now we construct a list of all the brightness points from patches below the max brightness cutoff
-    # When plotting is on, we color the patches
-    
-    # Vector keeping track of all pixels from patches dimmer than medbright:
-    imvec = []
-    # Plot image
-    if plot:
-        plt.pcolor(lon,lat,im)
     # Find sufficiently dim patches
     for i in rowinds:
         for j in colinds:
-            # Extract patches as before
-            imbin = im[i:i+step+1,j:j+step+1]
-            imbingood = imbin[np.where(~np.isnan((lon+lat)[i:i+step+1,j:j+step+1]))]
-            # Patch is more than half invalid
-            if len(imbingood) < ((step+1)**2)/2:
+            imbin = im[i: i + step + 1, j: j + step + 1] # extract patch
+            if np.sum(~np.isnan(imbin))>=((step+1)**2)/2: # discard patch if it is more than half invalid.
+                if np.median(imbin) <= medbright:
+                    imvec.extend(list(imbin))
+            else: # otherwise, calculate the median
                 continue
-            # Patch is dim enough
-            if np.median(imbingood) <= medbright:
-                if plot:
-                    # Scatter the patch's pixels
-                    plt.scatter(lon[i:i+step+1,j:j+step+1][np.where(~np.isnan(imbin))].reshape(-1),lat[i:i+step+1,j:j+step+1][np.where(~np.isnan(imbin))].reshape(-1),s=0.5)
-                # Add the pixels to imvec
-                imvec.extend(list(imbingood))
     imvec = np.asarray(imvec)
-    plt.show()
 
-    ################################################################
-    ################################################################
+    # Bin up the brightnesses to make a histogram
+    bins = np.arange(np.amin(imvec), np.amax(imvec) + 1) # choose the bins as integer numbers of counts
+    plotbins = np.arange(np.amin(imvec), np.amax(imvec) + 5, 5)
+    bincenters = [np.mean(bins[i: i + 2]) for i in range(len(bins) - 1)] # centers of bins
     
-    # We now bin up the brightnesses to make a histogram
-    # We choose the bins as integer numbers of counts
-    bins = np.arange(np.amin(imvec),np.amax(imvec)+1)
-    # For plotting/initial guesses, points are binned more aggressively so the trend is clearer
-    plotbins = np.arange(np.amin(imvec),np.amax(imvec)+5,5)
-    # Centers of bins
-    bincenters = [np.mean(bins[i:i+2]) for i in range(len(bins)-1)]
-    plotbincenters = [np.mean(plotbins[i:i+2]) for i in range(len(plotbins)-1)]
     # Histogram for fitting
-    hist,_ = np.histogram(imvec,bins)
+    hist, _ = np.histogram(imvec, bins)
     hist = np.asarray(hist)
+    
     # Histogram for plotting/initial guesses
-    plothist,_ = np.histogram(imvec,plotbins)
+    plothist, _ = np.histogram(imvec, plotbins)
     plothist = np.asarray(plothist)
+    
     # An initial guess of the center of the brightness distribution
     centerguess = np.median(imvec)
-    #print('guess bg='+str(centerguess))
-    # An initial guess at the width of the distribution, found by assuming it to be gaussian and finding the 
-    # crossing point of half max on the lower brightness end
-    #sigguess = (plotbincenters[np.argmax(plothist)] - plotbincenters[np.where(plothist >= np.amax(plothist)/3)[0][0]])/np.sqrt(np.log(3))
-    sigguess = estimate_sigma(im[np.where(~np.isnan(lon+lat))])
-    #print('sigguess='+str(sigguess))
-    #print('guess peak='+str(np.amax(plothist)/5))
-    # Plot histograms and initial guess gaussian
-    if plot:
-        plt.scatter(plotbincenters,plothist)
-        plt.scatter(bincenters,5*hist,s=2)
-        plt.plot(bins,5*gauss(bins,np.amax(plothist)/5,centerguess,sigguess),'--',linewidth=1)
-
-        plt.xlim(np.amin(imvec)-10,np.amax(imvec)+10)
-    
-        plt.title('noise fit')
-
-    # We fit  histogram to a gaussian curve
+    sigguess = estimate_sigma(im[np.where(~np.isnan(im))])
     
     # Initialize binary to keep track of whether the fit was successful
     fitfailed = False
     try:
-        [peak,cent,sig] = scipy.optimize.curve_fit(gauss,bincenters,hist,p0=[np.amax(plothist)/5,centerguess,sigguess])[0]
+        [peak, cent, sig] = scipy.optimize.curve_fit(gauss, bincenters, hist, p0=[np.amax(plothist) / 5, centerguess, sigguess])[0]
 
-    except:
-        # Fit failed
-        print('Fit failed!')
-        fitfailed = True
+    except Exception as e:
+        print('Fit failed! Failed at {e}')
+        cent, sig = background_brightness_corners(im, mask)
+            
     # Range of the data
-    hrange = bins[-1]-bins[0]
+    hrange = bins[-1] - bins[0]
+    
     # Sanity check on parameters - they are almost surely wrong if they fail this
-    if (sig>(hrange/2)) | ((cent-centerguess)>(hrange/4)) :
+    if (sig>(hrange/2)) | ((cent-centerguess)>(hrange/4)):
         print('Fit failed!')
         fitfailed = True
-    # If the fit failed
+#<<<<<<< HEAD
+#    # If the fit failed
+#    if fitfailed:
+#        # We keep the median estimate for background brightness
+#        cent = np.copy(centerguess)
+#        # Skimage noise estimate
+#        sig = sigguess
+# 
+#    # print('bg='+str(cent))
+#    # print('sig='+str(sig))
+#    
+#    if plot:
+#        # Plot the best guess gaussian
+#        if ~fitfailed:
+#            plt.plot(bins,5*gauss(bins,peak,cent,sig))
+#        plt.show()
+#        # Plot the image on a balanced colormap where white is the background brightness we found
+#        # Possibly useful to assess validity of results
+#        plt.pcolor(lon,lat,im,vmin=cent-4*sig,vmax=cent+4*sig,cmap='seismic')
+#        plt.colorbar()
+#        plt.title('white is fitted background brightness')
+#        plt.show()
+#    return cent,sig
+#    
+#    
+#def background_brightness_corners(im,lon,lat,plot=False):
+#    # A gaussian function
+#    def gauss(x, A, x0, sigma):
+#        return A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+#    
+#    imvec = im[np.where(np.isnan(lon+lat))]
+#=======
+#>>>>>>> production
+
     if fitfailed:
-        # We keep the median estimate for background brightness
-        cent = np.copy(centerguess)
-        # Skimage noise estimate
-        sig = sigguess
+        cent = np.copy(centerguess) # keep the median estimate for background brightness
+        sig = sigguess # skimage noise estimate
  
-    # print('bg='+str(cent))
-    # print('sig='+str(sig))
+#    print('bg=' + str(cent))
+#    print('sig=' + str(sig))
     
     if plot:
         # Plot the best guess gaussian
@@ -167,37 +205,45 @@ def background_brightness_darkpatches(im,lon,lat,plot=False):
         plt.show()
         # Plot the image on a balanced colormap where white is the background brightness we found
         # Possibly useful to assess validity of results
-        plt.pcolor(lon,lat,im,vmin=cent-4*sig,vmax=cent+4*sig,cmap='seismic')
+        #plt.pcolor(lon,lat,im,vmin=cent-4*sig,vmax=cent+4*sig,cmap='seismic')
+        plt.pcolor(im,vmin=cent-4*sig,vmax=cent+4*sig,cmap='seismic')
         plt.colorbar()
         plt.title('white is fitted background brightness')
         plt.show()
-    return cent,sig
     
-    
-def background_brightness_corners(im,lon,lat,plot=False):
-    # A gaussian function
-    def gauss(x, A, x0, sigma):
-        return A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
-    
-    imvec = im[np.where(np.isnan(lon+lat))]
+    return cent, sig
 
-    ################################################################
-    ################################################################
+     
+def background_brightness_corners(im, mask):
+    """
+    Purpose: 
+        - given an unmapped image, uses corners of sky to estimate background brightness
+          and gaussian noise level
+    """
     
-    # We now bin up the brightnesses to make a histogram
-    # We choose the bins as integer numbers of counts
-    bins = np.arange(np.amin(imvec),np.amax(imvec)+1)
-    bincenters = [np.mean(bins[i:i+2]) for i in range(len(bins)-1)]
-    hist,_ = np.histogram(imvec,bins)
+    imvec = im[np.where(mask)]
+    
+    # Bin up the brightnesses to make a histogram
+    bins = np.arange(np.amin(imvec), np.amax(imvec) + 1) # choose the bins as integer numbers of counts
+    bincenters = [np.mean(bins[i: i + 2]) for i in range(len(bins) - 1)]
+    hist, _ = np.histogram(imvec, bins)
 
     # An initial guess of the peak of the brightness distribution - this is simply the mode of the histogram
     centerguess = bincenters[np.where(hist == np.amax(hist))[0][0]]
-    #print('guess bg='+str(centerguess))
+
     # An initial guess at the width of the distribution, found by assuming it to be gaussian and finding the 
-    # crossing point of half max on the lower brightness end
-    sigguess = (centerguess - bincenters[np.where(hist >= np.amax(hist)/2)[0][0]])/np.sqrt(np.log(2))
-    #print('sigguess='+str(sigguess))
+    sigguess = (centerguess - bincenters[np.where(hist >= np.amax(hist)/2)[0][0]])/np.sqrt(np.log(2)) # crossing point of half max on the lower brightness end
+
+    # Fit the the histogram to a gaussian curve
+    try:
+        [peak, cent, sig] = scipy.optimize.curve_fit(gauss, bincenters, hist, p0=[np.amax(hist), centerguess, sigguess])[0]
+    except Exception as e:
+        print('Fit failed! Failed at {e}')
+        cent = centerguess
+        sig = sigguess
+    #print('sig=' + str(sig))
     
+#<<<<<<< HEAD
     # Plot histograms and initial guess gaussian
     if plot:
         plt.scatter(bincenters,hist)
@@ -219,189 +265,277 @@ def background_brightness_corners(im,lon,lat,plot=False):
         plt.colorbar()
         plt.title('white is fitted background brightness')
         plt.show()
-    return cent,sig
+    #return cent,sig
 
-# Resample an image onto a uniform grid and denoise it
+## Resample an image onto a uniform grid and denoise it
+#
+## Alex: this is confusing but to try to clarify... We want to project a red, green, and a blue image onto the same new uniform grid.
+## To to that we specify a new uniform grid in mlon,mlat, resample our image onto it, then footpoint the grid to 110 km to match the convention we use.
+#
+#
+## Takes in: image, date (for Apex footpointing), old geolon grid, old geolat grid,
+## new maglon vector, new maglat vector, altitude in km of old map, blur width in degrees lon, blur width in degrees lat, plot
+#
+## Denoising is done through straightforward gaussian blurring - width_deg and NS_deg specify longitudinal and latitudinal gaussian widths
+## in degrees, respectively.
+#def gaussian_denoise_resample(im,date,lon,lat,newmlonvec,newmlatvec,mapalt_km,width_deg,NS_deg=0,background_method='patches',plot=False): 
+#    # Used for setting the bounds of plots
+#    minlon = np.amin(lon[np.where(~np.isnan(lon))])
+#    maxlon = np.amax(lon[np.where(~np.isnan(lon))])
+#
+#    minlat = np.amin(lat[np.where(~np.isnan(lon))])
+#    maxlat = np.amax(lat[np.where(~np.isnan(lon))])
+#
+#    # Set the date for apex coordinates
+#    # A = Apex(date=date)
+#
+#    # Convert
+#    maglat, maglon = apex_convert(lat, lon, 'geo', 'apex', date, height=mapalt_km)
+#    # maglat, maglon = A.convert(lat.reshape(-1), np.mod(lon.reshape(-1),360), 'geo', 'apex', height=mapalt_km)
+#    # maglon = maglon.reshape(lon.shape)
+#    # maglat = maglat.reshape(lon.shape)
+#        
+#    # Interpolate onto regular grid        
+#    regim,regmaglon,regmaglat = interpolate_reggrid(im,maglon,maglat,newmlonvec,newmlatvec)
+#=======
+    return cent, sig
 
-# Alex: this is confusing but to try to clarify... We want to project a red, green, and a blue image onto the same new uniform grid.
-# To to that we specify a new uniform grid in mlon,mlat, resample our image onto it, then footpoint the grid to 110 km to match the convention we use.
 
-
-# Takes in: image, date (for Apex footpointing), old geolon grid, old geolat grid,
-# new maglon vector, new maglat vector, altitude in km of old map, blur width in degrees lon, blur width in degrees lat, plot
-
-# Denoising is done through straightforward gaussian blurring - width_deg and NS_deg specify longitudinal and latitudinal gaussian widths
-# in degrees, respectively.
-def gaussian_denoise_resample(im,date,lon,lat,newmlonvec,newmlatvec,mapalt_km,width_deg,NS_deg=0,background_method='patches',plot=False): 
-    # Used for setting the bounds of plots
-    minlon = np.amin(lon[np.where(~np.isnan(lon))])
-    maxlon = np.amax(lon[np.where(~np.isnan(lon))])
-
-    minlat = np.amin(lat[np.where(~np.isnan(lon))])
-    maxlat = np.amax(lat[np.where(~np.isnan(lon))])
-
-    # Set the date for apex coordinates
-    # A = Apex(date=date)
-
-    # Convert
-    maglat, maglon = apex_convert(lat, lon, 'geo', 'apex', date, height=mapalt_km)
-    # maglat, maglon = A.convert(lat.reshape(-1), np.mod(lon.reshape(-1),360), 'geo', 'apex', height=mapalt_km)
-    # maglon = maglon.reshape(lon.shape)
-    # maglat = maglat.reshape(lon.shape)
-        
-    # Interpolate onto regular grid        
-    regim,regmaglon,regmaglat = interpolate_reggrid(im,maglon,maglat,newmlonvec,newmlatvec)
+def background_brightness(im, mask, background_method='patches'):
+#>>>>>>> production
     # Find background brightness and estimated gaussian noise level
     if background_method=='patches':
-        bgbright,sig = background_brightness_darkpatches(im,lon,lat,plot=plot)
+        bgbright, sig = background_brightness_darkpatches(im, mask)
     elif background_method=='corners':
-        bgbright,sig = background_brightness_corners(im,lon,lat,plot=plot)
-        
-    # Estimate sigma using skimage
-    sigma_est = estimate_sigma(im[np.where(~np.isnan(lon+lat))])
-    # print('skimage estimated sig='+str(sigma_est))
-    
-    # Grid steps for our new footpointed grid
-    # Note that the new grid is very nearly Cartesian in footlat/footlon
-    dlon = np.mean(np.diff(regmaglon,axis=0))
-    dlat = np.mean(np.diff(regmaglat,axis=1))
+#<<<<<<< HEAD
+#        bgbright,sig = background_brightness_corners(im,lon,lat,plot=plot)
+#        
+#    # Estimate sigma using skimage
+#    sigma_est = estimate_sigma(im[np.where(~np.isnan(lon+lat))])
+#    # print('skimage estimated sig='+str(sigma_est))
+#    
+#    # Grid steps for our new footpointed grid
+#    # Note that the new grid is very nearly Cartesian in footlat/footlon
+#    dlon = np.mean(np.diff(regmaglon,axis=0))
+#    dlat = np.mean(np.diff(regmaglat,axis=1))
+#
+#    # Denoise
+#    # If we want to blur by a nonzero amount
+#    if width_deg != 0:
+#        regimfill = np.copy(regim)
+#        # Fill in the region of the image that does not map to the sky with the background brightness value
+#        regimfill[np.where(np.isnan(regim))] = bgbright
+#        
+#        # Plot image in magnetic coords
+#        if plot:
+#            plt.pcolormesh(regmaglon,regmaglat,regimfill)
+#            plt.title('Image in Mag Coords')
+#            plt.show()
+#
+#        # Blur E-W
+#        regimblur = scipy.ndimage.gaussian_filter1d(regimfill,width_deg/dlon,axis=0)
+#        if NS_deg != 0:
+#            #print('blurring N-S!!!')
+#            # Blur N-S
+#            regimblur = scipy.ndimage.gaussian_filter1d(np.copy(regimblur),NS_deg/dlat,axis=1)
+#        regimblur[np.where(np.isnan(regim))] = np.nan
+#    else:
+#        # If EW blurring degrees == 0, we just return the resampled image
+#        regimblur = regim
+#
+#    # Footpoint our new grid
+#    lat110, lon110 = apex_convert(regmaglat, regmaglon, 'apex', 'geo', date, height=110)
+#    # lat110,lon110 = A.convert(regmaglat.reshape(-1), np.mod(regmaglon.reshape(-1),360), 'apex', 'geo', height=110)
+#    # lat110 = lat110.reshape(regmaglat.shape)
+#    # lon110 = lon110.reshape(regmaglon.shape)
+#
+#    if plot:
+#        plt.pcolor(lon,lat,im,vmin=np.amin(regimblur[np.where(~np.isnan(regimblur))]),vmax=np.amax(regimblur[np.where(~np.isnan(regimblur))]))
+#        plt.title('original image')
+#        plt.show()
+#
+#        if width_deg != 0:
+#            plt.pcolormesh(lon110,lat110,regimblur)
+#            plt.xlim(minlon,maxlon)
+#            plt.ylim(minlat,maxlat)
+#            plt.title('blurred image')
+#            plt.show()
+#    
+#    return regimblur,regim,lon110,lat110,regmaglon,regmaglat,bgbright,sig
+#
+#
+## Takes in: image, date (for Apex footpointing), old geolon grid, old geolat grid,
+## new maglon vector, new maglat vector, altitude in km of old map, nshifts, plot
+#
+## Denoising is done through Bayesian thresholding of a nearly shift-invariant discrete wavelet transform
+## nshifts effectively parameterizes the shift-invariance, the larger it is set, the longer the function
+## takes to run but the more shift invariant the wavelets are (better quality denoising). Its default value
+## of 50 is already probably too high, one could reduce it to 30 with no problem. There is no good reason
+## to set it <5, since that should take less than a second to run.
+#
+#def wavelet_denoise_resample(im,date,lon,lat,newmlonvec,newmlatvec,mapalt_km,nshifts=50,background_method='patches',plot=False):
+#    # Used for setting the bounds of plots
+#    minlon = np.amin(lon[np.where(~np.isnan(lon))])
+#    maxlon = np.amax(lon[np.where(~np.isnan(lon))])
+#
+#    minlat = np.amin(lat[np.where(~np.isnan(lon))])
+#    maxlat = np.amax(lat[np.where(~np.isnan(lon))])
+#
+#    # Set the date for apex coordinates
+#    # A = Apex(date=date)
+#
+#    # Convert
+#    maglat, maglon = apex_convert(lat, lon, 'geo', 'apex', date, height=mapalt_km)
+#    # maglat, maglon = A.convert(lat.reshape(-1), np.mod(lon.reshape(-1),360), 'geo', 'apex', height=mapalt_km)
+#    # maglon = maglon.reshape(lon.shape)
+#    # maglat = maglat.reshape(lon.shape)
+#        
+#    # Interpolate original image onto regular grid        
+#    regim,regmaglon,regmaglat = interpolate_reggrid(im,maglon,maglat,newmlonvec,newmlatvec)
+#    # Find background brightness and estimated gaussian noise level
+#    if background_method=='patches':
+#        bgbright,sig = background_brightness_darkpatches(im,lon,lat,plot=plot)
+#    elif background_method=='corners':
+#        bgbright,sig = background_brightness_corners(im,lon,lat,plot=plot)
+#
+#    # Estimate sigma using skimage
+#    sigma_est = estimate_sigma(im[np.where(~np.isnan(lon+lat))])
+#    # print('skimage estimated sig='+str(sigma_est))
+#
+#    # Grid steps for our new footpointed grid
+#    # Note that the new grid is very nearly Cartesian in footlat/footlon
+#    dlon = np.mean(np.diff(regmaglon,axis=0))
+#    dlat = np.mean(np.diff(regmaglat,axis=1))
+#
+#    # Denoise
+#    imdenoise = cycle_spin(im, func=denoise_wavelet, max_shifts=nshifts)
+#    # Interpolate denoised image onto regular grid
+#    regimdenoise,_,_ = interpolate_reggrid(imdenoise,maglon,maglat,newmlonvec,newmlatvec)
+#    
+#    ridnfill = np.copy(regimdenoise)
+#    # Fill in the region of the image that does not map to the sky with the background brightness value
+#    ridnfill[np.where(np.isnan(regimdenoise))] = bgbright
+#    
+#    # NEW!!!! DO A SMALL GAUSSIAN BLUR!!!
+#    regimblur = scipy.ndimage.gaussian_filter1d(ridnfill,0.1/dlon,axis=0)
+#    regimblur = scipy.ndimage.gaussian_filter1d(np.copy(regimblur),0.01/dlat,axis=1)
+#    regimblur[np.where(np.isnan(regimdenoise))] = np.nan
+#    #regimblur = np.copy(regimdenoise)
+#    
+#    # Footpoint our new grid
+#    # lat110,lon110 = A.convert(regmaglat.reshape(-1), np.mod(regmaglon.reshape(-1),360), 'apex', 'geo', height=110)
+#    # lat110 = lat110.reshape(regmaglat.shape)
+#    # lon110 = lon110.reshape(regmaglon.shape)
+#    lat110, lon110 = apex_convert(regmaglat, regmaglon, 'apex', 'geo', date, height=110)
+#=======
+        bgbright, sig = background_brightness_corners(im, mask)
+
+#    # Estimate sigma using skimage
+#    sigma_est = estimate_sigma(im)
+#    print('skimage estimated sig=' + str(sigma_est))
+
+    return bgbright, sig
+
+
+def gaussian_denoise(im, dlat, dlon, bgbright, EW_deg=0, NS_deg=0): 
+    """
+    Purpose: 
+        - resample an image onto a uniform grid and denoise it
+        - project a red, green, and a blue image onto the same new uniform grid
+        - specify a new uniform grid in mlon, mlat; resample image onto it, footpoint the grid to 110 km to match the convention used
+        - denoising is done through gaussian blurring
+    Takes in:
+        - image
+        - date (for Apex footpointing)
+        - old geolon grid
+        - old geolat grid
+        - new maglon vector
+        - new maglat vector
+        - altitude [km] of old map
+        - blur width in degrees lat
+        - blur width in degrees lon
+        - plot
+    """
+
+    print('gaussian denoise...')
 
     # Denoise
-    # If we want to blur by a nonzero amount
-    if width_deg != 0:
-        regimfill = np.copy(regim)
-        # Fill in the region of the image that does not map to the sky with the background brightness value
-        regimfill[np.where(np.isnan(regim))] = bgbright
-        
-        # Plot image in magnetic coords
-        if plot:
-            plt.pcolormesh(regmaglon,regmaglat,regimfill)
-            plt.title('Image in Mag Coords')
-            plt.show()
-
-        # Blur E-W
-        regimblur = scipy.ndimage.gaussian_filter1d(regimfill,width_deg/dlon,axis=0)
-        if NS_deg != 0:
-            #print('blurring N-S!!!')
-            # Blur N-S
-            regimblur = scipy.ndimage.gaussian_filter1d(np.copy(regimblur),NS_deg/dlat,axis=1)
-        regimblur[np.where(np.isnan(regim))] = np.nan
-    else:
-        # If EW blurring degrees == 0, we just return the resampled image
-        regimblur = regim
-
-    # Footpoint our new grid
-    lat110, lon110 = apex_convert(regmaglat, regmaglon, 'apex', 'geo', date, height=110)
-    # lat110,lon110 = A.convert(regmaglat.reshape(-1), np.mod(regmaglon.reshape(-1),360), 'apex', 'geo', height=110)
-    # lat110 = lat110.reshape(regmaglat.shape)
-    # lon110 = lon110.reshape(regmaglon.shape)
-
-    if plot:
-        plt.pcolor(lon,lat,im,vmin=np.amin(regimblur[np.where(~np.isnan(regimblur))]),vmax=np.amax(regimblur[np.where(~np.isnan(regimblur))]))
-        plt.title('original image')
-        plt.show()
-
-        if width_deg != 0:
-            plt.pcolormesh(lon110,lat110,regimblur)
-            plt.xlim(minlon,maxlon)
-            plt.ylim(minlat,maxlat)
-            plt.title('blurred image')
-            plt.show()
+    regimblur = np.copy(im)
     
-    return regimblur,regim,lon110,lat110,regmaglon,regmaglat,bgbright,sig
-
-
-# Takes in: image, date (for Apex footpointing), old geolon grid, old geolat grid,
-# new maglon vector, new maglat vector, altitude in km of old map, nshifts, plot
-
-# Denoising is done through Bayesian thresholding of a nearly shift-invariant discrete wavelet transform
-# nshifts effectively parameterizes the shift-invariance, the larger it is set, the longer the function
-# takes to run but the more shift invariant the wavelets are (better quality denoising). Its default value
-# of 50 is already probably too high, one could reduce it to 30 with no problem. There is no good reason
-# to set it <5, since that should take less than a second to run.
-
-def wavelet_denoise_resample(im,date,lon,lat,newmlonvec,newmlatvec,mapalt_km,nshifts=50,background_method='patches',plot=False):
-    # Used for setting the bounds of plots
-    minlon = np.amin(lon[np.where(~np.isnan(lon))])
-    maxlon = np.amax(lon[np.where(~np.isnan(lon))])
-
-    minlat = np.amin(lat[np.where(~np.isnan(lon))])
-    maxlat = np.amax(lat[np.where(~np.isnan(lon))])
-
-    # Set the date for apex coordinates
-    # A = Apex(date=date)
-
-    # Convert
-    maglat, maglon = apex_convert(lat, lon, 'geo', 'apex', date, height=mapalt_km)
-    # maglat, maglon = A.convert(lat.reshape(-1), np.mod(lon.reshape(-1),360), 'geo', 'apex', height=mapalt_km)
-    # maglon = maglon.reshape(lon.shape)
-    # maglat = maglat.reshape(lon.shape)
-        
-    # Interpolate original image onto regular grid        
-    regim,regmaglon,regmaglat = interpolate_reggrid(im,maglon,maglat,newmlonvec,newmlatvec)
-    # Find background brightness and estimated gaussian noise level
-    if background_method=='patches':
-        bgbright,sig = background_brightness_darkpatches(im,lon,lat,plot=plot)
-    elif background_method=='corners':
-        bgbright,sig = background_brightness_corners(im,lon,lat,plot=plot)
-
-    # Estimate sigma using skimage
-    sigma_est = estimate_sigma(im[np.where(~np.isnan(lon+lat))])
-    # print('skimage estimated sig='+str(sigma_est))
-
-    # Grid steps for our new footpointed grid
-    # Note that the new grid is very nearly Cartesian in footlat/footlon
-    dlon = np.mean(np.diff(regmaglon,axis=0))
-    dlat = np.mean(np.diff(regmaglat,axis=1))
-
-    # Denoise
-    imdenoise = cycle_spin(im, func=denoise_wavelet, max_shifts=nshifts)
-    # Interpolate denoised image onto regular grid
-    regimdenoise,_,_ = interpolate_reggrid(imdenoise,maglon,maglat,newmlonvec,newmlatvec)
-    
-    ridnfill = np.copy(regimdenoise)
     # Fill in the region of the image that does not map to the sky with the background brightness value
-    ridnfill[np.where(np.isnan(regimdenoise))] = bgbright
-    
-    # NEW!!!! DO A SMALL GAUSSIAN BLUR!!!
-    regimblur = scipy.ndimage.gaussian_filter1d(ridnfill,0.1/dlon,axis=0)
-    regimblur = scipy.ndimage.gaussian_filter1d(np.copy(regimblur),0.01/dlat,axis=1)
-    regimblur[np.where(np.isnan(regimdenoise))] = np.nan
-    #regimblur = np.copy(regimdenoise)
-    
-    # Footpoint our new grid
-    # lat110,lon110 = A.convert(regmaglat.reshape(-1), np.mod(regmaglon.reshape(-1),360), 'apex', 'geo', height=110)
-    # lat110 = lat110.reshape(regmaglat.shape)
-    # lon110 = lon110.reshape(regmaglon.shape)
-    lat110, lon110 = apex_convert(regmaglat, regmaglon, 'apex', 'geo', date, height=110)
+    regimblur[np.where(np.isnan(im))] = bgbright
+#>>>>>>> production
 
-    if plot:
-        plt.pcolor(lon,lat,im,vmin=np.amin(regimblur[np.where(~np.isnan(regimblur))]),vmax=np.amax(regimblur[np.where(~np.isnan(regimblur))]))
-        plt.title('original image')
-        plt.show()
+    # Blur E-W
+    if EW_deg != 0:
+        regimblur = scipy.ndimage.gaussian_filter1d(regimblur, EW_deg / dlon, axis = 0)
 
-        plt.pcolormesh(lon110,lat110,regimblur)
-        plt.xlim(minlon,maxlon)
-        plt.ylim(minlat,maxlat)
-        plt.title('denoised image')
-        plt.show()
-    return regimblur,regim,lon110,lat110,regmaglon,regmaglat,bgbright,sig
+    # Blur N-S
+    if NS_deg != 0: # latitudinal gaussian width
+        # Blur N-S
+        regimblur = scipy.ndimage.gaussian_filter1d(regimblur, NS_deg / dlat, axis = 1)
+
+    regimblur[np.where(np.isnan(im))] = np.nan
+
+    return regimblur
+
+
+def wavelet_denoise(im, dlat, dlon, bgbright, nshifts=50):
+    """
+    Purpose: 
+        - denoising is done through Bayesian thresholding of a nearly shift-invariant discrete wavelet transform
+        - 'nshifts' effectively parameterizes the shift-invariance, the larger it is set, the longer the function
+          takes to run but the more shift invariant the wavelets are (better quality denoising)
+    Takes in:
+        - image
+        - date (for Apex footpointing)
+        - old geolon grid
+        - old geolat grid
+        - new maglon vector
+        - new maglat vector
+        - altitude [km] of old map
+        - nshifts
+        - plot
+    """
     
-# Uses radioactive source calibrations to roughly convert counts-> rayleighs
-# for the Poker DASC camera
+
+    print('wavelet denoise...')
+
+    ridnfill = np.copy(im)
+    
+    # Fill in the region of the image that does not map to the sky with the background brightness value
+    ridnfill[np.isnan(im)] = bgbright
+    
+    # Denoise
+    imdenoise = cycle_spin(ridnfill, func = denoise_wavelet, max_shifts = nshifts)
+
+   
+    # Perform small gaussian blur
+    regimblur = scipy.ndimage.gaussian_filter1d(imdenoise, 0.1 / dlon, axis = 0)
+    regimblur = scipy.ndimage.gaussian_filter1d(np.copy(regimblur), 0.01 / dlat, axis = 1)
+    regimblur[np.where(np.isnan(im))] = np.nan
+
+    return regimblur
+
+    
 def to_rayleighs(redcutin,greencutin,bluecutin,redbg,greenbg,bluebg):
+    """
+    Purpose: 
+        - uses radioactive source calibrations to convert counts to rayleighs
+        - specific to the Poker DASC
+    """
+    
     # Divide by integration time to get counts per second
+    redcut = (np.copy(redcutin) - redbg) / 1.5
+    greencut = (np.copy(greencutin) - greenbg) / 1
+    bluecut = (np.copy(bluecutin) - bluebg) / 1
     
-    redcut = (np.copy(redcutin)-redbg)/1.5
-    greencut = (np.copy(greencutin)-greenbg)/1
-    bluecut = (np.copy(bluecutin)-bluebg)/1
-    
-    # Now use conversion factors, rayleighs / (counts/second)
-    
+    # Conversion factors, rayleighs / (counts/second)
     redcut *= 23.8
     greencut *= 24.2
     bluecut *= 69.8
     
+#<<<<<<< HEAD
     return redcut,greencut,bluecut
 
 def apex_convert(lat, lon, source, dest, date, height=0):
@@ -425,3 +559,8 @@ def apex_convert(lat, lon, source, dest, date, height=0):
     lat_out_nans[ids] = lat_out
     lon_out_nans[ids] = lon_out
     return lat_out_nans.reshape(lat.shape), lon_out_nans.reshape(lon.shape)
+#=======
+#    return redcut, greencut, bluecut
+#
+#
+#>>>>>>> production
