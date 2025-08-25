@@ -16,7 +16,7 @@ Purpose of this script:
 
 
 
-def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=0.4, blur_deg_NS=0.04, n_shift=50, background_method='corners', dec=2, plot=True):
+def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=0.4, blur_deg_NS=0.04, nshifts=30, background_method='corners', dec=2, plot=True):
     """
     Purpose: 
         - prepares ASI images for inversion with necessary smoothing, ext
@@ -128,12 +128,10 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=
     rmask = np.isnan(skymapred[0])
 
 
-
-
     # Calculate background brightness
-    bluebgbright, sig = background_brightness(blueimcoadd, bmask)
-    greenbgbright, sig = background_brightness(greenimcoadd, gmask)
-    redbgbright, sig = background_brightness(redimcoadd, rmask)
+    bluebgbright, sig = background_brightness(blueimcoadd, bmask, plot=plot)
+    greenbgbright, sig = background_brightness(greenimcoadd, gmask, plot=plot)
+    redbgbright, sig = background_brightness(redimcoadd, rmask, plot=plot)
 
     # Calculate new magnetic grid
 
@@ -182,9 +180,9 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=
 
 
     # Wavelet Denoise
-    blueimdenoise = wavelet_denoise(blueimreg, dlat, dlon, bluebgbright, nshifts=30)
-    greenimdenoise = wavelet_denoise(greenimreg, dlat, dlon, greenbgbright, nshifts=30)
-    redimdenoise = wavelet_denoise(redimreg, dlat, dlon, redbgbright, nshifts=30)
+    blueimdenoise = wavelet_denoise(blueimreg, dlat, dlon, bluebgbright, nshifts=nshifts)
+    greenimdenoise = wavelet_denoise(greenimreg, dlat, dlon, greenbgbright, nshifts=nshifts)
+    redimdenoise = wavelet_denoise(redimreg, dlat, dlon, redbgbright, nshifts=nshifts)
 
     # Plot Wavelet Denoise Images
     if plot:
@@ -247,7 +245,6 @@ def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=
         plt.ylabel('N-S')
         plt.show()
 
-   
     redray, greenray, blueray = to_rayleighs(redimdenoise, greenimdenoise, blueimdenoise, redbgbright, greenbgbright, bluebgbright)
     
     badrange = np.where(np.isnan(redray + blueray + greenray))
