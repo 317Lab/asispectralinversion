@@ -33,37 +33,49 @@ The following dependiences should be installed automatically.  If errors occur, 
 - [PyWavelets](https://pywavelets.readthedocs.io/en/latest/index.html)
 - [importlib_resources](https://importlib-resources.readthedocs.io/en/latest/index.html)
 
+## Usage
 
-## Running the asispectralinversion library
+The script `example_runscript.py` shows a simple example of how to call this package from a python script.  This script demonstrates two use cases - running a single inversion and generating a series of inversions over the length of an event.  In both cases, you must [generate GLOW lookup tables](#obtaining-glow-lookup-tables) BEFORE running this code.
 
-Runscript using example data can be found in src/asispectralinversion/asispectralinversion_runscript.py -- tweak inputs like your output directory and where you have ASI data/GLOW lookup tables saved, as in the following template:
+### Single Inversion
+A single inversion can be performed by calling the `feed_data` function. Input for this function includes:
 
-```
-# Tweakable inputs
-date = 'YYMMDD' # date in the form of YYYYMMDD
-starttime = 'HHMMSS' # start time in the format of HHMMSS
-endtime = 'HHMMSS' # end time in the format of HHMMSS
+- date, as a `datetime.date` object
+- list of specific red input png files
+- list of specific green input png files
+- list of specific blue input png files
+- path to directory holding the GLOW lookup tables
+- output filename
 
-maglatsite = 65.8 # site of camera in magnetic latitude
+Because input files are passed into this function explicity, it does not matter where they are stored or what they are named so long as the full file paths are provided.  Additional optional parameters can be specified to customize how the inversion is performed and whether or not plots are generated.
 
-lambdas = ['0428', '0558', '0630'] # wavelengths (nm) of imager filters
+### Multiple Inversions
+A series of inversions for all images over the course of an evant can be performed with the `file_data` and `process_grouped_files` functions.  The `file_data` function downloads and organizes input image files.  Input for this function incudes:
 
-folder = '/path_to_GLOW_lookup_tables_for_hour/' # folder that holds all image files and GLOW outputs for an hour's worth of an event
-base_outdir = '/path_to_output_directory/' # output directory to store all output figures and h5s
-output_txt = '/path_to_output_directory/time_ranges.txt' # output for txt file that shows time cadence
+- date, as a `datetime.date` object
+- start time as a `datetime.time` object
+- end time as a `datetime.time` object
+- path to directory to save downloaded image files
 
-# Main function calls to run through entire process
-date, starttime, endtime, maglatsite, folder, base_outdir, lambdas = file_data(date, starttime, endtime, maglatsite, folder, output_txt, base_outdir)
-process_grouped_files(date, starttime, endtime, maglatsite, folder, base_outdir, lambdas)
 
-```
+The `process_grouped_files` function runs through automatically calling `feed_data` to process groups of files in multiple inversions.  Inputs include:
 
-Note that the required inputs are a date to pull PNG files for, a GLOW lookup table for the corresponding time(s), and a skymap.mat file. See instructions below for generating GLOW lookup tables and downloading the necessary skymap.mat file to go with each run.
+- time stamps of each file group as `datetime.datetime` objects
+- list of red input png file groups
+- list of green input png file groups
+- list of blue input png file groups
+- path to directory holding the GLOW lookup tables
+- path to directory to save output files
+
+The first four inputs can taken directly from the output of `file_data`.
+
+### Inversions at Other Sites
+By default, this code has been designed to work on the Poker Flat Digital All-Sky Camera (PKR DASC).  The inversion method itself is general, but the built in utilities to download and organize images are specific to this site.  To use this package with a different site, you can only use the "Single Inversion" option discussed above.  Furthermore, you will have to specify a site-specific skymap file that maps image pixels to geographic locations using the optional `skymap_file` parameter in `feed_data`.
+
 
 ## Data products obtained using the asispectralinversion library
 
-Running this process gives a user:
-1. Imagery from ASI
+1. Imagery from ASI (if automatically downloaded)
    
    ![red_imagery](https://github.com/user-attachments/assets/854905a8-28ba-4c9f-aa56-1618f97833d8) ![green_imagery](https://github.com/user-attachments/assets/667b9b68-1fb1-48fd-afdc-31482b0d84b1) ![blue_imagery](https://github.com/user-attachments/assets/b6bff157-d891-4bda-a6fb-d2f8da3a0cb4)
 
@@ -83,9 +95,7 @@ Running this process gives a user:
     
    ![SigH_geomag](https://github.com/user-attachments/assets/a4cbc41c-2361-4ac2-acec-b58d2654ab7f)
 
-6. An output file that shows the time between processed 2D maps in .csv format
-   
-7. Output files with mapped information to plug into external libraries (Lompe, GEMINI) in .h5 format
+6. Output files with mapped information to plug into external libraries (Lompe, GEMINI) in .h5 format
 
 
 All maps are given in both geodetic and geomagnetic coordinates.
@@ -188,6 +198,4 @@ cd path/to/asispectralinversion/src/glow_invert
    - airglow/I8446_23078_29760.bin
    - airglow/ped3d_23078_29760.bin
 
-## Obtaining the skymap.mat file
 
-For all runs specifically with the Poker DASC (which this repo is supporting), the same skymap.mat file will be used for every single run. It can be found [here](https://www.dropbox.com/home/Hayley%20Clevenger/GLOW). If the DASC gets moved at all, the skymap.mat file contents will change and the new version will be needed for the relevant dates.   
