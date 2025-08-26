@@ -149,7 +149,8 @@ def calculate_E0_Q_v2(redbright,greenbright,bluebright,inlookup_table,minE0=150,
         plt.title('Characteristic Energy')
         plt.show()
 
-    return qvec.reshape(shape), e0vec.reshape(shape), minqvec.reshape(shape), maxqvec.reshape(shape), mine0vec.reshape(shape), maxe0vec.reshape(shape)
+    #return qvec.reshape(shape), e0vec.reshape(shape), minqvec.reshape(shape), maxqvec.reshape(shape), mine0vec.reshape(shape), maxe0vec.reshape(shape)
+    return qvec.reshape(shape), e0vec.reshape(shape)
 
 
 #def calculate_E0_Q(redbright, greenbright, bluebright, lookup_table, minE0 = 150, generous = False):
@@ -210,6 +211,11 @@ def calculate_E0_Q_v2_RGonly(redbright,greenbright,bluebright,inlookup_table,min
     
     # Save the initial shape of arrays. They will be flattened and later reshaped back to this
     shape = greenbright.shape
+
+    # Reshape brightness arrays to vectors
+    redvec = redbright.reshape(-1)
+    greenvec = greenbright.reshape(-1)
+    bluevec = bluebright.reshape(-1)
 
     # # Estimates Q from blue brightness, along with error bars
     # qvec, maxqvec, minqvec = q_interp(lookup_table['bluemat'],lookup_table['Qvec'],lookup_table['E0vec'],bluevec,minE0ind=minE0ind,maxbluebright='auto',interp='linear',plot=plot)
