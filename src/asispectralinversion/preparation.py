@@ -16,7 +16,7 @@ Purpose of this script:
 
 
 
-def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=0.4, blur_deg_NS=0.04, nshifts=30, background_method='corners', dec=2, plot=True):
+def prepare_data(dtdate, redimgs, greenimgs, blueimgs, skymap_file, blur_deg_EW=0.4, blur_deg_NS=0.04, nshifts=30, background_method='patches', dec=2, plot=True):
     """
     Purpose: 
         - prepares ASI images for inversion with necessary smoothing, ext
