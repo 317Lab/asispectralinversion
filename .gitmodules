@@ -1,0 +1,3 @@
+[submodule "src/glow_invert/GLOW"]
+	path = src/glow_invert/GLOW
+	url = git@github.com:NCAR/GLOW.git
